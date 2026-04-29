@@ -11,6 +11,7 @@ env/
 data/*.db
 data/*.sqlite
 data/*.sqlite3
+data/samples/
 
 # Environment variables (API keys, secrets)
 .env
