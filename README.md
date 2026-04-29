@@ -10,7 +10,7 @@ JSEdge is a web app that ranks every stock on the JSE main and junior markets by
 
 - [x] Project skeleton
 - [x] SQLite schema + setup
-- [ ] JSE daily scraper
+- [x] JSE daily scraper
 - [ ] Ranking engine
 - [ ] Web dashboard
 - [ ] Manual fundamentals entry form
