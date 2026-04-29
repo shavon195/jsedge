@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+{% if active_tab == "jse" %}
+    <div class="space-y-8">
+        <div>
+            <h1 class="text-3xl font-bold mb-2">JSE — Stock Rankings</h1>
+            <p class="text-slate-400">
+                Long-term value rankings for the Main and Junior markets.
+            </p>
+        </div>
+
+        <div class="bg-slate-800 border border-slate-700 rounded-lg p-8 text-center">
+            <p class="text-5xl mb-4">🚧</p>
+            <h2 class="text-xl font-semibold mb-2">Rankings load here</h2>
+            <p class="text-slate-400 max-w-md mx-auto">
+                Step 3 of the build: the JSE scraper feeds prices and
+                fundamentals into the database. Step 4: the ranking engine
+                turns that into a top-to-bottom buy attractiveness list.
+            </p>
+        </div>
+    </div>
+
+{% elif active_tab == "news" %}
+    <div class="bg-slate-800 border border-slate-700 rounded-lg p-12 text-center">
+        <p class="text-6xl mb-6">📰</p>
+        <h1 class="text-3xl font-bold mb-3">News — Coming in Phase 2</h1>
+        <p class="text-slate-400 max-w-lg mx-auto">
+            Short, AI-summarized snippets of JSE news from the Gleaner,
+            Observer, and JSE filings, tagged by stock symbol.
+        </p>
+    </div>
+
+{% elif active_tab == "trading" %}
+    <div class="bg-slate-800 border border-slate-700 rounded-lg p-12 text-center">
+        <p class="text-6xl mb-6">⚡</p>
+        <h1 class="text-3xl font-bold mb-3">Trading — Coming in Phase 3</h1>
+        <p class="text-slate-400 max-w-lg mx-auto">
+            TradingView chart embeds, technical indicators (RSI, MACD,
+            moving averages), and signal alerts. Built once Phase 1 is
+            shipped and a few months of historical data is in the books.
+        </p>
+    </div>
+{% endif %}
+
+{% endblock %}
