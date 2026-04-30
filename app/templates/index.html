@@ -33,15 +33,39 @@
     </div>
 
 {% elif active_tab == "trading" %}
-    <div class="bg-slate-800 border border-slate-700 rounded-lg p-12 text-center">
-        <p class="text-6xl mb-6">⚡</p>
-        <h1 class="text-3xl font-bold mb-3">Trading — Coming in Phase 3</h1>
-        <p class="text-slate-400 max-w-lg mx-auto">
-            TradingView chart embeds, technical indicators (RSI, MACD,
-            moving averages), and signal alerts. Built once Phase 1 is
-            shipped and a few months of historical data is in the books.
-        </p>
-    </div>
-{% endif %}
+    <div class="space-y-8">
+        <div class="bg-slate-800 border border-slate-700 rounded-lg p-10 text-center">
+            <p class="text-6xl mb-4">⚡</p>
+            <h1 class="text-3xl font-bold mb-2">Trading</h1>
+            <p class="text-slate-400 text-sm">Phase 3 — coming after the JSE foundation ships.</p>
+        </div>
 
+        <div>
+            <h2 class="text-xl font-semibold mb-4">What's planned</h2>
+            <div class="grid md:grid-cols-2 gap-4">
+                <div class="bg-slate-800 border border-slate-700 rounded-lg p-5 hover:border-slate-600 transition">
+                    <p class="text-2xl mb-2">📊</p>
+                    <h3 class="font-semibold mb-1">Technical Indicators</h3>
+                    <p class="text-sm text-slate-400">RSI, MACD, moving averages, Bollinger Bands — calculated daily on stored historical data.</p>
+                </div>
+                <div class="bg-slate-800 border border-slate-700 rounded-lg p-5 hover:border-slate-600 transition">
+                    <p class="text-2xl mb-2">🎯</p>
+                    <h3 class="font-semibold mb-1">Signal Engine</h3>
+                    <p class="text-sm text-slate-400">Buy and sell signals based on technical setups, paper-traded first to validate before risking real money.</p>
+                </div>
+                <div class="bg-slate-800 border border-slate-700 rounded-lg p-5 hover:border-slate-600 transition">
+                    <p class="text-2xl mb-2">📈</p>
+                    <h3 class="font-semibold mb-1">TradingView Integration</h3>
+                    <p class="text-sm text-slate-400">Embedded charts and Pine Script webhook receiver for custom alerts that fire through to JSEdge.</p>
+                </div>
+                <div class="bg-slate-800 border border-slate-700 rounded-lg p-5 hover:border-slate-600 transition">
+                    <p class="text-2xl mb-2">🔄</p>
+                    <h3 class="font-semibold mb-1">Backtesting</h3>
+                    <p class="text-sm text-slate-400">Test strategies against the historical price database we're building daily — see how a signal would have performed last year.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endif %}
 {% endblock %}
