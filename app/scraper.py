@@ -341,6 +341,86 @@ def save_stocks_to_db(parsed_stocks: list[dict], market: str) -> dict:
     return {"inserted": inserted, "updated": updated}
 
 # ---------------------------------------------------------------------------
+# Database — save parsed prices
+# ---------------------------------------------------------------------------
+def save_prices_to_db(parsed_stocks: list[dict], price_date: date) -> dict:
+    """
+    Insert daily prices into the `prices_daily` table.
+
+    Looks up each symbol's stock_id from the `stocks` table, then inserts
+    a price row for the given date. Uses ON CONFLICT to safely re-run
+    (won't create duplicates for same stock + date).
+
+    Args:
+        parsed_stocks: list of dicts from parse_all_stocks().
+        price_date:    Python date object — the trading day this price is for.
+
+    Returns:
+        Dict with counts: {'saved': N, 'skipped': N}.
+    """
+    saved   = 0
+    skipped = 0
+
+    conn = get_connection()
+    try:
+        for s in parsed_stocks:
+            symbol = s.get("symbol")
+            close  = s.get("closing_price")
+
+            # Skip rows missing the essentials.
+            if not symbol or close is None:
+                skipped += 1
+                continue
+
+            # Find the stock_id for this symbol.
+            stock_row = conn.execute(
+                "SELECT id FROM stocks WHERE symbol = ?",
+                (symbol,),
+            ).fetchone()
+
+            if stock_row is None:
+                log.warning("No stocks row for symbol '%s' — skipping.", symbol)
+                skipped += 1
+                continue
+
+            stock_id = stock_row["id"]
+
+            conn.execute(
+                """
+                INSERT INTO prices_daily
+                    (stock_id, date, close_price, open_price, high_price,
+                     low_price, volume)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(stock_id, date) DO UPDATE SET
+                    close_price = excluded.close_price,
+                    open_price  = excluded.open_price,
+                    high_price  = excluded.high_price,
+                    low_price   = excluded.low_price,
+                    volume      = excluded.volume
+                """,
+                (
+                    stock_id,
+                    price_date.isoformat(),
+                    close,
+                    s.get("last_price"),     # using last_price as a stand-in for open
+                    None,                    # high — not directly given on this page
+                    None,                    # low  — not directly given on this page
+                    s.get("volume"),
+                ),
+            )
+            saved += 1
+
+        conn.commit()
+    finally:
+        conn.close()
+
+    log.info(
+        "Prices saved: %d rows for %s (skipped %d).",
+        saved, price_date.isoformat(), skipped
+    )
+    return {"saved": saved, "skipped": skipped}
+
+# ---------------------------------------------------------------------------
 # Manual test entry point
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
