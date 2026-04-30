@@ -12,6 +12,7 @@ from typing import Optional
 
 import requests
 from bs4 import BeautifulSoup
+from app.database import get_connection
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -279,6 +280,65 @@ def parse_all_stocks(html: str) -> list[dict]:
 
     log.info("Parsed %d stocks from the page.", len(stocks))
     return stocks
+
+# ---------------------------------------------------------------------------
+# Database — save parsed stocks
+# ---------------------------------------------------------------------------
+def save_stocks_to_db(parsed_stocks: list[dict], market: str) -> dict:
+    """
+    Insert parsed stocks into the `stocks` table, updating any that already
+    exist. Uses SQLite's ON CONFLICT clause so re-running is safe.
+
+    Args:
+        parsed_stocks: list of dicts from parse_all_stocks().
+        market: 'main' or 'junior' — used to set the market column.
+
+    Returns:
+        Dict with counts: {'inserted': N, 'updated': N}.
+    """
+    market_label = "Main Market" if market == "main" else "Junior Market"
+
+    inserted = 0
+    updated  = 0
+
+    conn = get_connection()
+    try:
+        for s in parsed_stocks:
+            if not s.get("symbol"):
+                continue  # skip rows with no symbol
+
+            # Was this symbol already in the table before this call?
+            existing = conn.execute(
+                "SELECT id FROM stocks WHERE symbol = ?",
+                (s["symbol"],),
+            ).fetchone()
+
+            conn.execute(
+                """
+                INSERT INTO stocks (symbol, name, market)
+                VALUES (?, ?, ?)
+                ON CONFLICT(symbol) DO UPDATE SET
+                    name       = excluded.name,
+                    market     = excluded.market,
+                    updated_at = datetime('now')
+                """,
+                (s["symbol"], s["name"], market_label),
+            )
+
+            if existing:
+                updated += 1
+            else:
+                inserted += 1
+
+        conn.commit()
+    finally:
+        conn.close()
+
+    log.info(
+        "Stocks saved: %d inserted, %d updated (%s).",
+        inserted, updated, market_label
+    )
+    return {"inserted": inserted, "updated": updated}
 
 # ---------------------------------------------------------------------------
 # Manual test entry point
