@@ -3,69 +3,177 @@
 {% block content %}
 
 {% if active_tab == "jse" %}
-    <div class="space-y-8">
-        <div>
-            <h1 class="text-3xl font-bold mb-2">JSE — Stock Rankings</h1>
-            <p class="text-slate-400">
-                Long-term value rankings for the Main and Junior markets.
-            </p>
-        </div>
-
-        <div class="bg-slate-800 border border-slate-700 rounded-lg p-8 text-center">
-            <p class="text-5xl mb-4">🚧</p>
-            <h2 class="text-xl font-semibold mb-2">Rankings load here</h2>
-            <p class="text-slate-400 max-w-md mx-auto">
-                Step 3 of the build: the JSE scraper feeds prices and
-                fundamentals into the database. Step 4: the ranking engine
-                turns that into a top-to-bottom buy attractiveness list.
-            </p>
+<div class="space-y-8">
+    <div>
+        <h1 class="text-3xl font-bold mb-2">JSE — Today's Technical Movers</h1>
+        <p class="text-slate-400 mb-3">
+            Stocks ranked by short-term technical signals (price position, volume, volatility, dividends)
+            {% if rankings.date %} for {{ rankings.date }}{% endif %}.
+        </p>
+        <div class="bg-amber-900/20 border border-amber-700/40 rounded-lg p-3 text-sm text-amber-200/90">
+            ⚠️ <strong>Not a long-term buy signal.</strong>
+            Horizon-aware rankings (6mo / 1yr / 2yr / 5yr / 10+yr) using fundamentals are coming next.
         </div>
     </div>
 
-{% elif active_tab == "news" %}
-    <div class="bg-slate-800 border border-slate-700 rounded-lg p-12 text-center">
-        <p class="text-6xl mb-6">📰</p>
-        <h1 class="text-3xl font-bold mb-3">News — Coming in Phase 2</h1>
-        <p class="text-slate-400 max-w-lg mx-auto">
-            Short, AI-summarized snippets of JSE news from the Gleaner,
-            Observer, and JSE filings, tagged by stock symbol.
+    {% if rankings.main %}
+    <div>
+        <div class="flex items-baseline justify-between mb-3">
+            <h2 class="text-xl font-semibold">📊 Main Ranking</h2>
+            <p class="text-xs text-slate-500">
+                Top {{ rankings.main|length }} of {{ rankings.total_main }}
+            </p>
+        </div>
+
+        <div class="overflow-x-auto bg-slate-800 border border-slate-700 rounded-lg">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-900 text-slate-400">
+                    <tr>
+                        <th class="text-left px-4 py-3">#</th>
+                        <th class="text-left px-4 py-3">Symbol</th>
+                        <th class="text-left px-4 py-3 hidden md:table-cell">Name</th>
+                        <th class="text-right px-4 py-3">Price</th>
+                        <th class="text-right px-4 py-3">Score</th>
+                        <th class="text-right px-4 py-3 hidden sm:table-cell">Complete</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700">
+                    {% for stock in rankings.main %}
+                    <tr class="hover:bg-slate-750 transition">
+                        <td class="px-4 py-3 text-slate-500">{{ loop.index }}</td>
+                        <td class="px-4 py-3 font-mono font-bold text-emerald-400">
+                            {{ stock.symbol }}
+                        </td>
+                        <td class="px-4 py-3 text-slate-400 hidden md:table-cell truncate max-w-xs">
+                            {{ stock.name }}
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            ${{ "%.2f"|format(stock.close_price) if stock.close_price else "—" }}
+                        </td>
+                        <td class="px-4 py-3 text-right font-bold">
+                            {{ "%.1f"|format(stock.composite_score) }}
+                        </td>
+                        <td class="px-4 py-3 text-right text-slate-500 hidden sm:table-cell">
+                            {{ "%.0f"|format(stock.data_completeness * 100) }}%
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if rankings.incomplete %}
+    <div>
+        <div class="flex items-baseline justify-between mb-3">
+            <h2 class="text-xl font-semibold text-amber-400">⚠️ Incomplete Data</h2>
+            <p class="text-xs text-slate-500">
+                Top {{ rankings.incomplete|length }} of {{ rankings.total_incomplete }}
+            </p>
+        </div>
+        <p class="text-xs text-slate-500 mb-3">
+            These stocks are missing 25%+ of scoring signals.
+            Investigate before trusting their rank.
+        </p>
+
+        <div class="overflow-x-auto bg-slate-800 border border-slate-700 rounded-lg">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-900 text-slate-400">
+                    <tr>
+                        <th class="text-left px-4 py-3">Symbol</th>
+                        <th class="text-left px-4 py-3 hidden md:table-cell">Name</th>
+                        <th class="text-right px-4 py-3">Price</th>
+                        <th class="text-right px-4 py-3">Score</th>
+                        <th class="text-left px-4 py-3 hidden lg:table-cell">Missing</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700">
+                    {% for stock in rankings.incomplete %}
+                    <tr class="hover:bg-slate-750 transition">
+                        <td class="px-4 py-3 font-mono font-bold text-amber-400">
+                            {{ stock.symbol }}
+                        </td>
+                        <td class="px-4 py-3 text-slate-400 hidden md:table-cell truncate max-w-xs">
+                            {{ stock.name }}
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            ${{ "%.2f"|format(stock.close_price) if stock.close_price else "—" }}
+                        </td>
+                        <td class="px-4 py-3 text-right font-bold">
+                            {{ "%.1f"|format(stock.composite_score) if stock.composite_score is not none else "—" }}
+                        </td>
+                        <td class="px-4 py-3 text-xs text-slate-500 hidden lg:table-cell">
+                            {{ stock.notes or "—" }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not rankings.main and not rankings.incomplete %}
+    <div class="bg-slate-800 border border-slate-700 rounded-lg p-8 text-center">
+        <p class="text-5xl mb-4">📭</p>
+        <h2 class="text-xl font-semibold mb-2">No rankings yet</h2>
+        <p class="text-slate-400 max-w-md mx-auto">
+            Run the scraper and ranking engine to populate the dashboard:
+            <code class="bg-slate-900 px-2 py-1 rounded">python scripts/run_scraper.py</code>
         </p>
     </div>
+    {% endif %}
+</div>
+
+{% elif active_tab == "news" %}
+<div class="bg-slate-800 border border-slate-700 rounded-lg p-12 text-center">
+    <p class="text-6xl mb-6">📰</p>
+    <h1 class="text-3xl font-bold mb-3">News — Coming in Phase 2</h1>
+    <p class="text-slate-400 max-w-lg mx-auto">
+        Short, AI-summarized snippets of JSE news from the Gleaner,
+        Observer, and JSE filings, tagged by stock symbol.
+    </p>
+</div>
 
 {% elif active_tab == "trading" %}
-    <div class="space-y-8">
-        <div class="bg-slate-800 border border-slate-700 rounded-lg p-10 text-center">
-            <p class="text-6xl mb-4">⚡</p>
-            <h1 class="text-3xl font-bold mb-2">Trading</h1>
-            <p class="text-slate-400 text-sm">Phase 3 — coming after the JSE foundation ships.</p>
-        </div>
+<div class="space-y-8">
+    <div class="bg-slate-800 border border-slate-700 rounded-lg p-10 text-center">
+        <p class="text-6xl mb-4">⚡</p>
+        <h1 class="text-3xl font-bold mb-2">Trading</h1>
+        <p class="text-slate-400 text-sm">Phase 3 — coming after the JSE foundation ships.</p>
+    </div>
 
-        <div>
-            <h2 class="text-xl font-semibold mb-4">What's planned</h2>
-            <div class="grid md:grid-cols-2 gap-4">
-                <div class="bg-slate-800 border border-slate-700 rounded-lg p-5 hover:border-slate-600 transition">
-                    <p class="text-2xl mb-2">📊</p>
-                    <h3 class="font-semibold mb-1">Technical Indicators</h3>
-                    <p class="text-sm text-slate-400">RSI, MACD, moving averages, Bollinger Bands — calculated daily on stored historical data.</p>
-                </div>
-                <div class="bg-slate-800 border border-slate-700 rounded-lg p-5 hover:border-slate-600 transition">
-                    <p class="text-2xl mb-2">🎯</p>
-                    <h3 class="font-semibold mb-1">Signal Engine</h3>
-                    <p class="text-sm text-slate-400">Buy and sell signals based on technical setups, paper-traded first to validate before risking real money.</p>
-                </div>
-                <div class="bg-slate-800 border border-slate-700 rounded-lg p-5 hover:border-slate-600 transition">
-                    <p class="text-2xl mb-2">📈</p>
-                    <h3 class="font-semibold mb-1">TradingView Integration</h3>
-                    <p class="text-sm text-slate-400">Embedded charts and Pine Script webhook receiver for custom alerts that fire through to JSEdge.</p>
-                </div>
-                <div class="bg-slate-800 border border-slate-700 rounded-lg p-5 hover:border-slate-600 transition">
-                    <p class="text-2xl mb-2">🔄</p>
-                    <h3 class="font-semibold mb-1">Backtesting</h3>
-                    <p class="text-sm text-slate-400">Test strategies against the historical price database we're building daily — see how a signal would have performed last year.</p>
-                </div>
+    <div>
+        <h2 class="text-xl font-semibold mb-4">What's planned</h2>
+        <div class="grid md:grid-cols-2 gap-4">
+            <div class="bg-slate-800 border border-slate-700 rounded-lg p-5 hover:border-slate-600 transition">
+                <p class="text-2xl mb-2">📊</p>
+                <h3 class="font-semibold mb-1">Technical Indicators</h3>
+                <p class="text-sm text-slate-400">RSI, MACD, moving averages, Bollinger Bands — calculated daily on
+                    stored historical data.</p>
+            </div>
+            <div class="bg-slate-800 border border-slate-700 rounded-lg p-5 hover:border-slate-600 transition">
+                <p class="text-2xl mb-2">🎯</p>
+                <h3 class="font-semibold mb-1">Signal Engine</h3>
+                <p class="text-sm text-slate-400">Buy and sell signals based on technical setups, paper-traded first to
+                    validate before risking real money.</p>
+            </div>
+            <div class="bg-slate-800 border border-slate-700 rounded-lg p-5 hover:border-slate-600 transition">
+                <p class="text-2xl mb-2">📈</p>
+                <h3 class="font-semibold mb-1">TradingView Integration</h3>
+                <p class="text-sm text-slate-400">Embedded charts and Pine Script webhook receiver for custom alerts
+                    that fire through to JSEdge.</p>
+            </div>
+            <div class="bg-slate-800 border border-slate-700 rounded-lg p-5 hover:border-slate-600 transition">
+                <p class="text-2xl mb-2">🔄</p>
+                <h3 class="font-semibold mb-1">Backtesting</h3>
+                <p class="text-sm text-slate-400">Test strategies against the historical price database we're building
+                    daily — see how a signal would have performed last year.</p>
             </div>
         </div>
     </div>
+</div>
 
 {% endif %}
 {% endblock %}

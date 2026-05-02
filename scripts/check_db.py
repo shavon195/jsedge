@@ -92,6 +92,19 @@ for r in results:
     score = compute_volume_score(r["volume"], volumes_today)
     print(f"  {r['symbol']:<8} vol={r['volume']:>10}   score={score}")
 
+# Latest rankings preview
+print("\n--- Latest Rankings (top 5 from each list) ---")
+from app.ranking import get_latest_rankings
+rankings = get_latest_rankings(limit=5)
+print(f"Date: {rankings['date']}")
+print(f"Main: {rankings['total_main']} stocks total | Incomplete: {rankings['total_incomplete']} total")
+print("\nTop 5 main ranking:")
+for r in rankings["main"]:
+    print(f"  {r['symbol']:<10} ${r['close_price'] or '?':<7} score={r['composite_score']}")
+print("\nTop 5 incomplete:")
+for r in rankings["incomplete"]:
+    print(f"  {r['symbol']:<10} ${r['close_price'] or '?':<7} score={r['composite_score']}")
+
 print("\n--- Scores Table Schema ---")
 cols = conn.execute("PRAGMA table_info(scores)").fetchall()
 for c in cols:

@@ -520,3 +520,91 @@ def save_scores_to_db(scored: list[dict], target_date: date) -> dict:
         saved, target_date.isoformat(), skipped
     )
     return {"saved": saved, "skipped": skipped}
+
+# ---------------------------------------------------------------------------
+# Read scores back from the database for display
+# ---------------------------------------------------------------------------
+def get_latest_rankings(limit: int = 25) -> dict:
+    """
+    Fetch the most recent day's rankings from the scores table.
+
+    Splits results into main and incomplete-data lists based on the
+    same MAIN_RANKING_THRESHOLD used by the scorer.
+
+    Args:
+        limit: max number of stocks to return per list. Default 25.
+
+    Returns:
+        Dict with:
+            date:        the date these rankings are from (str, ISO format)
+            main:        list of top N stocks with full enough data
+            incomplete:  list of top N stocks with incomplete data
+            total_main:  total count in main ranking (before limit)
+            total_incomplete: total count in incomplete (before limit)
+    """
+    conn = get_connection()
+    try:
+        # Find the most recent date we have scores for.
+        latest_row = conn.execute(
+            "SELECT MAX(date) AS latest FROM scores"
+        ).fetchone()
+
+        if not latest_row or not latest_row["latest"]:
+            return {
+                "date": None,
+                "main": [],
+                "incomplete": [],
+                "total_main": 0,
+                "total_incomplete": 0,
+            }
+
+        latest_date = latest_row["latest"]
+
+        # Pull all stocks scored on that date, joined with stock info
+        # and that day's price.
+        rows = conn.execute(
+            """
+            SELECT
+                s.symbol,
+                s.name,
+                s.market,
+                sc.composite_score,
+                sc.position_score,
+                sc.volume_score,
+                sc.dividend_score,
+                sc.range_score,
+                sc.data_completeness,
+                sc.notes,
+                p.close_price,
+                p.volume
+            FROM scores sc
+            JOIN stocks s        ON s.id = sc.stock_id
+            LEFT JOIN prices_daily p
+                ON p.stock_id = sc.stock_id AND p.date = sc.date
+            WHERE sc.date = ?
+            ORDER BY sc.composite_score DESC
+            """,
+            (latest_date,),
+        ).fetchall()
+
+    finally:
+        conn.close()
+
+    # Convert sqlite Row objects to plain dicts so the template can use them.
+    all_rows = [dict(r) for r in rows]
+
+    main = [r for r in all_rows
+            if r["data_completeness"] is not None
+            and r["data_completeness"] >= MAIN_RANKING_THRESHOLD]
+
+    incomplete = [r for r in all_rows
+                  if r["data_completeness"] is None
+                  or r["data_completeness"] < MAIN_RANKING_THRESHOLD]
+
+    return {
+        "date":             latest_date,
+        "main":             main[:limit],
+        "incomplete":       incomplete[:limit],
+        "total_main":       len(main),
+        "total_incomplete": len(incomplete),
+    }

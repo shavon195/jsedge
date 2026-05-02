@@ -32,16 +32,19 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 # ---------------------------------------------------------------------------
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    """JSEdge landing page — defaults to the JSE tab."""
+    """JSEdge landing page — defaults to the JSE tab with latest rankings."""
+    from app.ranking import get_latest_rankings
+    rankings = get_latest_rankings(limit=25)
+
     return templates.TemplateResponse(
         "index.html",
         {
             "request":     request,
             "active_tab":  "jse",
             "page_title":  "JSE — Stock Rankings",
+            "rankings":    rankings,
         },
     )
-
 
 @app.get("/news", response_class=HTMLResponse)
 async def news(request: Request):
