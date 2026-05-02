@@ -49,4 +49,10 @@ for row in sample:
     print(f"  {row['symbol']:<8} {row['market']:<14} "
           f"{row['date']}  close=${row['close_price']:<8} vol={row['volume']}")
 
+# Show all columns in the scores table (handy for debugging migrations)
+print("\n--- Scores Table Schema ---")
+cols = conn.execute("PRAGMA table_info(scores)").fetchall()
+for c in cols:
+    print(f"  {c['name']:<20} {c['type']}")
+
 conn.close()
