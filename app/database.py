@@ -65,6 +65,10 @@ CREATE TABLE IF NOT EXISTS prices_daily (
     low_price     REAL,
     volume        INTEGER,
     market_cap    REAL,
+    todays_range   TEXT,
+    week52_range   TEXT,
+    div_prev_year  REAL,
+    div_curr_year  REAL,
     created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE,
     UNIQUE (stock_id, date)

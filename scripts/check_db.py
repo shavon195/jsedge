@@ -50,6 +50,48 @@ for row in sample:
           f"{row['date']}  close=${row['close_price']:<8} vol={row['volume']}")
 
 # Show all columns in the scores table (handy for debugging migrations)
+
+# Volume score sanity check on real JSE data
+from app.ranking import compute_volume_score
+
+# Verify new price-extras columns got populated
+print("\n--- Price Extras Check ---")
+sample = conn.execute("""
+    SELECT s.symbol, p.todays_range, p.week52_range,
+           p.div_prev_year, p.div_curr_year
+    FROM prices_daily p
+    JOIN stocks s ON s.id = p.stock_id
+    WHERE p.date = '2026-04-28'
+      AND s.symbol IN ('138SL', 'NCBFG', 'JBG', 'CCC', 'ASBH')
+    ORDER BY s.symbol
+""").fetchall()
+
+for r in sample:
+    print(
+        f"  {r['symbol']:<8} "
+        f"today={str(r['todays_range']):<16} "
+        f"52w={str(r['week52_range']):<18} "
+        f"div_prev={r['div_prev_year']}  div_curr={r['div_curr_year']}"
+    )
+
+print("\n--- Volume Score Test (real data) ---")
+volumes_today = [r["volume"] for r in conn.execute(
+    "SELECT volume FROM prices_daily WHERE date = '2026-04-28' AND volume IS NOT NULL"
+).fetchall()]
+
+print(f"  Market sample: {len(volumes_today)} stocks with volume data")
+
+sample_symbols = ['138SL', 'NCBFG', 'JBG', 'AFS', 'BIL', 'AHPC']
+results = conn.execute("""
+    SELECT s.symbol, p.volume
+    FROM prices_daily p JOIN stocks s ON s.id = p.stock_id
+    WHERE p.date = '2026-04-28' AND s.symbol IN ({})
+""".format(",".join("?" * len(sample_symbols))), sample_symbols).fetchall()
+
+for r in results:
+    score = compute_volume_score(r["volume"], volumes_today)
+    print(f"  {r['symbol']:<8} vol={r['volume']:>10}   score={score}")
+
 print("\n--- Scores Table Schema ---")
 cols = conn.execute("PRAGMA table_info(scores)").fetchall()
 for c in cols:

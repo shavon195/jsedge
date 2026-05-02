@@ -408,14 +408,20 @@ def save_prices_to_db(parsed_stocks: list[dict], price_date: date) -> dict:
                 """
                 INSERT INTO prices_daily
                     (stock_id, date, close_price, open_price, high_price,
-                     low_price, volume)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                     low_price, volume,
+                     todays_range, week52_range, div_prev_year, div_curr_year)
+                VALUES (?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?)
                 ON CONFLICT(stock_id, date) DO UPDATE SET
-                    close_price = excluded.close_price,
-                    open_price  = excluded.open_price,
-                    high_price  = excluded.high_price,
-                    low_price   = excluded.low_price,
-                    volume      = excluded.volume
+                    close_price   = excluded.close_price,
+                    open_price    = excluded.open_price,
+                    high_price    = excluded.high_price,
+                    low_price     = excluded.low_price,
+                    volume        = excluded.volume,
+                    todays_range  = excluded.todays_range,
+                    week52_range  = excluded.week52_range,
+                    div_prev_year = excluded.div_prev_year,
+                    div_curr_year = excluded.div_curr_year
                 """,
                 (
                     stock_id,
@@ -425,6 +431,10 @@ def save_prices_to_db(parsed_stocks: list[dict], price_date: date) -> dict:
                     None,                    # high — not directly given on this page
                     None,                    # low  — not directly given on this page
                     s.get("volume"),
+                    s.get("todays_range"),
+                    s.get("week52_range"),
+                    s.get("div_prev_year"),
+                    s.get("div_curr_year"),
                 ),
             )
             saved += 1
