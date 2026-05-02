@@ -6,12 +6,14 @@ the database. Phase 1: just fetching pages and proving we can read them.
 """
 
 import logging
+import time
 from datetime import date
 from pathlib import Path
 from typing import Optional
 
 import requests
 from bs4 import BeautifulSoup
+
 from app.database import get_connection
 
 # ---------------------------------------------------------------------------
@@ -43,6 +45,10 @@ HEADERS = {
 
 # Don't wait forever for a slow response.
 REQUEST_TIMEOUT_SECONDS = 30
+
+# Retry settings — when the network or jamstockex.com hiccups
+MAX_RETRIES = 3
+RETRY_BACKOFF_SECONDS = 2  # doubled each retry: 2s, 4s, 8s
 
 # Set up logging so we can see what's happening when the scraper runs.
 logging.basicConfig(
@@ -278,7 +284,20 @@ def parse_all_stocks(html: str) -> list[dict]:
         if parsed:  # skip empty/invalid rows
             stocks.append(parsed)
 
-    log.info("Parsed %d stocks from the page.", len(stocks))
+    if len(stocks) == 0:
+        log.warning(
+            "Parsed 0 stocks. The page may be from a non-trading day "
+            "(weekend/holiday) or the site structure may have changed."
+        )
+    elif len(stocks) < 20:
+        log.warning(
+            "Only parsed %d stocks — that's lower than expected. "
+            "Investigate before trusting this data.",
+            len(stocks),
+        )
+    else:
+        log.info("Parsed %d stocks from the page.", len(stocks))
+
     return stocks
 
 # ---------------------------------------------------------------------------
