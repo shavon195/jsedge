@@ -81,15 +81,19 @@ CREATE INDEX IF NOT EXISTS idx_prices_date       ON prices_daily(date);
 CREATE TABLE IF NOT EXISTS fundamentals (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     stock_id            INTEGER NOT NULL,
-    report_date         TEXT    NOT NULL,
-    period_type         TEXT    NOT NULL CHECK (period_type IN ('quarterly', 'annual')),
+    period_end_date     TEXT    NOT NULL,
+    period_type         TEXT    NOT NULL CHECK (period_type IN ('quarterly', 'half_year', 'annual', 'ttm')),
     eps                 REAL,
     pe_ratio            REAL,
     pb_ratio            REAL,
     dividend_yield      REAL,
     total_debt          REAL,
     total_equity        REAL,
+    total_assets        REAL,
     net_income          REAL,
+    operating_income    REAL,
+    operating_cash_flow REAL,
+    free_cash_flow      REAL,
     revenue             REAL,
     shares_outstanding  REAL,
     source              TEXT    NOT NULL CHECK (source IN ('scraped', 'manual')),
@@ -97,7 +101,7 @@ CREATE TABLE IF NOT EXISTS fundamentals (
     created_at          TEXT    NOT NULL DEFAULT (datetime('now')),
     updated_at          TEXT    NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE,
-    UNIQUE (stock_id, report_date, period_type)
+    UNIQUE (stock_id, period_end_date, period_type)
 );
 
 CREATE INDEX IF NOT EXISTS idx_fundamentals_stock ON fundamentals(stock_id);
