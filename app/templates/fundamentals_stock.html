@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    {# Breadcrumb back to list #}
+    <nav class="text-sm text-slate-500">
+        <a href="/fundamentals" class="hover:text-emerald-400">← Back to all stocks</a>
+    </nav>
+
+    {# Stock header #}
+    <div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
+        <div class="flex items-baseline gap-3 mb-1">
+            <h1 class="text-3xl font-bold font-mono text-emerald-400">{{ stock.symbol }}</h1>
+            <span class="text-xs px-2 py-1 bg-slate-700 rounded text-slate-300">{{ stock.market }}</span>
+        </div>
+        <p class="text-slate-300">{{ stock.name }}</p>
+        {% if stock.sector %}
+        <p class="text-xs text-slate-500 mt-1">Sector: {{ stock.sector }}</p>
+        {% endif %}
+    </div>
+
+    {# Existing fundamentals list #}
+    <div>
+        <h2 class="text-xl font-semibold mb-3">
+            Existing Periods
+            <span class="text-sm text-slate-500 font-normal">({{ fundamentals|length }})</span>
+        </h2>
+
+        {% if fundamentals %}
+        <div class="overflow-x-auto bg-slate-800 border border-slate-700 rounded-lg">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-900 text-slate-400">
+                    <tr>
+                        <th class="text-left px-4 py-3">Period End</th>
+                        <th class="text-left px-4 py-3">Type</th>
+                        <th class="text-right px-4 py-3 hidden md:table-cell">Revenue</th>
+                        <th class="text-right px-4 py-3 hidden md:table-cell">Net Income</th>
+                        <th class="text-right px-4 py-3 hidden lg:table-cell">EPS</th>
+                        <th class="text-left px-4 py-3 hidden sm:table-cell">Source</th>
+                        <th class="text-right px-4 py-3">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700">
+                    {% for f in fundamentals %}
+                    <tr class="hover:bg-slate-750 transition">
+                        <td class="px-4 py-3 font-mono">{{ f.period_end_date }}</td>
+                        <td class="px-4 py-3 text-slate-400 text-xs uppercase">{{ f.period_type }}</td>
+                        <td class="px-4 py-3 text-right hidden md:table-cell">
+                            {{ "{:,.0f}".format(f.revenue) if f.revenue is not none else "—" }}
+                        </td>
+                        <td class="px-4 py-3 text-right hidden md:table-cell">
+                            {{ "{:,.0f}".format(f.net_income) if f.net_income is not none else "—" }}
+                        </td>
+                        <td class="px-4 py-3 text-right hidden lg:table-cell">
+                            {{ "{:.2f}".format(f.eps) if f.eps is not none else "—" }}
+                        </td>
+                        <td class="px-4 py-3 text-slate-500 text-xs hidden sm:table-cell">{{ f.source }}</td>
+                        <td class="px-4 py-3 text-right">
+                            <span class="text-slate-600 text-xs">view (soon)</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="bg-slate-800 border border-slate-700 rounded-lg p-6 text-center text-slate-500 text-sm">
+            No periods entered yet. Add the first one below ↓
+        </div>
+        {% endif %}
+    </div>
+
+    {# Add new period form #}
+    <div>
+        <h2 class="text-xl font-semibold mb-3">Add New Period</h2>
+
+        <form method="post"
+              action="/fundamentals/stock/{{ stock.id }}/save"
+              class="bg-slate-800 border border-slate-700 rounded-lg p-5 space-y-5">
+
+            {# Period info — required #}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label class="block">
+                    <span class="text-sm font-medium text-slate-300">Period End Date *</span>
+                    <input type="date" name="period_end_date" required
+                           class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2
+                                  text-slate-100 focus:border-emerald-500 focus:outline-none">
+                    <span class="text-xs text-slate-500">e.g. 2025-12-31 for FY2025</span>
+                </label>
+
+                <label class="block">
+                    <span class="text-sm font-medium text-slate-300">Period Type *</span>
+                    <select name="period_type" required
+                            class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2
+                                   text-slate-100 focus:border-emerald-500 focus:outline-none">
+                        <option value="annual">Annual</option>
+                        <option value="quarterly">Quarterly</option>
+                        <option value="half_year">Half Year</option>
+                        <option value="ttm">Trailing 12 Months</option>
+                    </select>
+                </label>
+            </div>
+
+            {# Income statement #}
+            <fieldset class="border border-slate-700 rounded p-4">
+                <legend class="px-2 text-xs uppercase tracking-wide text-slate-400">Income Statement</legend>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label class="block">
+                        <span class="text-sm text-slate-300">Revenue</span>
+                        <input type="number" step="any" name="revenue"
+                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm text-slate-300">Net Income</span>
+                        <input type="number" step="any" name="net_income"
+                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm text-slate-300">Operating Income</span>
+                        <input type="number" step="any" name="operating_income"
+                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm text-slate-300">EPS (per share)</span>
+                        <input type="number" step="any" name="eps"
+                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                    </label>
+                </div>
+            </fieldset>
+
+            {# Balance sheet #}
+            <fieldset class="border border-slate-700 rounded p-4">
+                <legend class="px-2 text-xs uppercase tracking-wide text-slate-400">Balance Sheet</legend>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <label class="block">
+                        <span class="text-sm text-slate-300">Total Assets</span>
+                        <input type="number" step="any" name="total_assets"
+                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm text-slate-300">Total Equity</span>
+                        <input type="number" step="any" name="total_equity"
+                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm text-slate-300">Total Debt</span>
+                        <input type="number" step="any" name="total_debt"
+                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                    </label>
+                </div>
+            </fieldset>
+
+            {# Cash flow #}
+            <fieldset class="border border-slate-700 rounded p-4">
+                <legend class="px-2 text-xs uppercase tracking-wide text-slate-400">Cash Flow</legend>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label class="block">
+                        <span class="text-sm text-slate-300">Operating Cash Flow</span>
+                        <input type="number" step="any" name="operating_cash_flow"
+                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm text-slate-300">Free Cash Flow</span>
+                        <input type="number" step="any" name="free_cash_flow"
+                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                    </label>
+                </div>
+            </fieldset>
+
+            {# Per-share & ratios #}
+            <fieldset class="border border-slate-700 rounded p-4">
+                <legend class="px-2 text-xs uppercase tracking-wide text-slate-400">Ratios &amp; Other</legend>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <label class="block">
+                        <span class="text-sm text-slate-300">P/E Ratio</span>
+                        <input type="number" step="any" name="pe_ratio"
+                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm text-slate-300">P/B Ratio</span>
+                        <input type="number" step="any" name="pb_ratio"
+                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm text-slate-300">Dividend Yield (%)</span>
+                        <input type="number" step="any" name="dividend_yield"
+                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm text-slate-300">Shares Outstanding</span>
+                        <input type="number" step="any" name="shares_outstanding"
+                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                    </label>
+                </div>
+            </fieldset>
+
+            {# Notes #}
+            <label class="block">
+                <span class="text-sm font-medium text-slate-300">Notes (optional)</span>
+                <textarea name="notes" rows="2"
+                          placeholder="Source URL, caveats, anything weird about this period..."
+                          class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2
+                                 text-slate-100 focus:border-emerald-500 focus:outline-none"></textarea>
+            </label>
+
+            {# Submit #}
+            <div class="flex items-center justify-between pt-2">
+                <p class="text-xs text-slate-500">
+                    * required fields. All other fields can be left blank.
+                </p>
+                <button type="submit"
+                        class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-6 py-2 rounded transition">
+                    Save Period
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

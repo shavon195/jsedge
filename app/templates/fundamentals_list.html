@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <div>
+        <h1 class="text-3xl font-bold mb-2">Fundamentals — Data Entry</h1>
+        <p class="text-slate-400">
+            Manually enter quarterly or annual financial data for each JSE stock.
+            Stocks with the least data appear first.
+        </p>
+    </div>
+
+    {# Progress summary card #}
+    {% set total       = stocks|length %}
+    {% set with_data   = stocks|selectattr("fundamentals_count", ">", 0)|list|length %}
+    {% set empty_count = total - with_data %}
+
+    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4 grid grid-cols-3 gap-4 text-center">
+        <div>
+            <div class="text-2xl font-bold">{{ total }}</div>
+            <div class="text-xs text-slate-400 uppercase tracking-wide">Total stocks</div>
+        </div>
+        <div>
+            <div class="text-2xl font-bold text-emerald-400">{{ with_data }}</div>
+            <div class="text-xs text-slate-400 uppercase tracking-wide">With data</div>
+        </div>
+        <div>
+            <div class="text-2xl font-bold text-amber-400">{{ empty_count }}</div>
+            <div class="text-xs text-slate-400 uppercase tracking-wide">Empty</div>
+        </div>
+    </div>
+
+    {# Table of all stocks #}
+    <div class="overflow-x-auto bg-slate-800 border border-slate-700 rounded-lg">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-900 text-slate-400">
+                <tr>
+                    <th class="text-left px-4 py-3">Symbol</th>
+                    <th class="text-left px-4 py-3 hidden md:table-cell">Name</th>
+                    <th class="text-left px-4 py-3">Market</th>
+                    <th class="text-right px-4 py-3">Periods</th>
+                    <th class="text-right px-4 py-3">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-700">
+                {% for stock in stocks %}
+                <tr class="hover:bg-slate-750 transition">
+                    <td class="px-4 py-3 font-mono font-bold text-emerald-400">
+                        {{ stock.symbol }}
+                    </td>
+                    <td class="px-4 py-3 text-slate-300 hidden md:table-cell truncate max-w-md">
+                        {{ stock.name }}
+                    </td>
+                    <td class="px-4 py-3 text-slate-400 text-xs">
+                        {{ stock.market }}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        {% if stock.fundamentals_count == 0 %}
+                            <span class="text-amber-400 font-bold">0</span>
+                        {% else %}
+                            <span class="text-emerald-400 font-bold">{{ stock.fundamentals_count }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <a href="/fundamentals/stock/{{ stock.id }}"
+                           class="text-emerald-400 hover:text-emerald-300 font-medium text-xs">
+                            {% if stock.fundamentals_count == 0 %}+ Add{% else %}View / Edit{% endif %}
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

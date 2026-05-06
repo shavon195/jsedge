@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="min-h-[60vh] flex items-center justify-center">
+    <div class="text-center max-w-lg px-6">
+        {# Big ticker-style 404 #}
+        <div class="font-mono text-6xl md:text-8xl font-bold mb-4">
+            <span class="text-emerald-400">4</span><span class="text-slate-700">0</span><span class="text-amber-400">4</span>
+        </div>
+
+        <h1 class="text-2xl md:text-3xl font-bold mb-3">
+            That stock isn't on the exchange 📉
+        </h1>
+
+        <p class="text-slate-400 mb-2">
+            We searched the JSE, the Junior Market, and even checked under the desk —
+            but this page doesn't exist.
+        </p>
+
+        <p class="text-slate-500 text-sm mb-8 italic">
+            "Buy low" doesn't help if the URL is wrong. 😅
+        </p>
+
+        {# Stock-ticker-style "trade" suggestions #}
+        <div class="bg-slate-800 border border-slate-700 rounded-lg p-4 mb-6 text-left">
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-3">
+                📊 Suggested moves:
+            </p>
+            <div class="space-y-2 font-mono text-sm">
+                <a href="/" class="flex justify-between items-center hover:bg-slate-700 px-3 py-2 rounded transition group">
+                    <span class="text-emerald-400 font-bold">JSE</span>
+                    <span class="text-slate-300 group-hover:text-white">Today's Technical Movers →</span>
+                </a>
+                <a href="/fundamentals" class="flex justify-between items-center hover:bg-slate-700 px-3 py-2 rounded transition group">
+                    <span class="text-emerald-400 font-bold">FUND</span>
+                    <span class="text-slate-300 group-hover:text-white">Fundamentals Data Entry →</span>
+                </a>
+                <a href="/news" class="flex justify-between items-center hover:bg-slate-700 px-3 py-2 rounded transition group">
+                    <span class="text-emerald-400 font-bold">NEWS</span>
+                    <span class="text-slate-300 group-hover:text-white">News (Coming in Phase 2) →</span>
+                </a>
+            </div>
+        </div>
+
+        <p class="text-xs text-slate-600">
+            JSEdge — Jamaica Stock Exchange Intelligence 🇯🇲
+        </p>
+    </div>
+</div>
+{% endblock %}

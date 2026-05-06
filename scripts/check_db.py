@@ -92,6 +92,17 @@ for r in results:
     score = compute_volume_score(r["volume"], volumes_today)
     print(f"  {r['symbol']:<8} vol={r['volume']:>10}   score={score}")
 
+# Fundamentals coverage check
+print("\n--- Fundamentals Coverage ---")
+from app.fundamentals import list_stocks_with_status
+stocks_status = list_stocks_with_status()
+total = len(stocks_status)
+empty = len([s for s in stocks_status if s["fundamentals_count"] == 0])
+print(f"Total stocks: {total}  |  With fundamentals: {total - empty}  |  Empty: {empty}")
+print("\nFirst 5 (emptiest):")
+for r in stocks_status[:5]:
+    print(f"  {r['symbol']:<10} {r['market']:<14} {r['fundamentals_count']} rows")
+
 # Latest rankings preview
 print("\n--- Latest Rankings (top 5 from each list) ---")
 from app.ranking import get_latest_rankings

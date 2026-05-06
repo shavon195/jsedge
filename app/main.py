@@ -76,3 +76,45 @@ async def trading(request: Request):
 async def health():
     """Health check endpoint — useful for deployment monitoring."""
     return {"status": "ok", "service": "jsedge", "version": "0.1.0"}
+
+
+# ---------------------------------------------------------------------------
+# Fundamentals data entry
+# ---------------------------------------------------------------------------
+@app.get("/fundamentals", response_class=HTMLResponse)
+async def fundamentals_list(request: Request):
+    """Show all stocks + how many fundamental rows each has."""
+    from app.fundamentals import list_stocks_with_status
+    stocks = list_stocks_with_status()
+
+    return templates.TemplateResponse(
+        "fundamentals_list.html",
+        {
+            "request":    request,
+            "page_title": "Fundamentals — Data Entry",
+            "stocks":     stocks,
+        },
+    )
+
+@app.get("/fundamentals/stock/{stock_id}", response_class=HTMLResponse)
+async def fundamentals_for_stock(request: Request, stock_id: int):
+    """Show one stock's fundamentals + form to add a new period."""
+    from app.fundamentals import get_stock_with_fundamentals
+    data = get_stock_with_fundamentals(stock_id)
+
+    if data is None:
+        return templates.TemplateResponse(
+            "404.html",
+            {"request": request, "page_title": "Stock not found"},
+            status_code=404,
+        )
+
+    return templates.TemplateResponse(
+        "fundamentals_stock.html",
+        {
+            "request":      request,
+            "page_title":   f"{data['stock']['symbol']} — Fundamentals",
+            "stock":        data["stock"],
+            "fundamentals": data["fundamentals"],
+        },
+    )
