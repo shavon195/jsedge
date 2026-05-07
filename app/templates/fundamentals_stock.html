@@ -7,6 +7,29 @@
         <a href="/fundamentals" class="hover:text-emerald-400">← Back to all stocks</a>
     </nav>
 
+    {# Flash banner — shows after save/error redirects #}
+    {% if flash_msg %}
+    <div class="rounded-lg p-4 border
+            {% if flash_kind == 'success' %}
+              bg-emerald-900/30 border-emerald-700/50 text-emerald-200
+            {% else %}
+              bg-rose-900/30 border-rose-700/50 text-rose-200
+            {% endif %}">
+        <div class="flex items-start gap-3">
+            <span class="text-xl leading-none">
+                {% if flash_kind == 'success' %}✅{% else %}⚠️{% endif %}
+            </span>
+            <div class="flex-1">
+                <p class="font-semibold">
+                    {% if flash_kind == 'success' %}Saved{% else %}Couldn't save{% endif %}
+                </p>
+                <p class="text-sm opacity-90">{{ flash_msg }}</p>
+            </div>
+            <a href="/fundamentals/stock/{{ stock.id }}" class="text-sm opacity-60 hover:opacity-100">✕</a>
+        </div>
+    </div>
+    {% endif %}
+
     {# Stock header #}
     <div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
         <div class="flex items-baseline gap-3 mb-1">
@@ -56,7 +79,10 @@
                         </td>
                         <td class="px-4 py-3 text-slate-500 text-xs hidden sm:table-cell">{{ f.source }}</td>
                         <td class="px-4 py-3 text-right">
-                            <span class="text-slate-600 text-xs">view (soon)</span>
+                            <a href="/fundamentals/period/{{ f.id }}"
+                                class="text-emerald-400 hover:text-emerald-300 text-xs font-medium">
+                                View / Edit
+                            </a>
                         </td>
                     </tr>
                     {% endfor %}
@@ -74,24 +100,21 @@
     <div>
         <h2 class="text-xl font-semibold mb-3">Add New Period</h2>
 
-        <form method="post"
-              action="/fundamentals/stock/{{ stock.id }}/save"
-              class="bg-slate-800 border border-slate-700 rounded-lg p-5 space-y-5">
+        <form method="post" action="/fundamentals/stock/{{ stock.id }}/save"
+            class="bg-slate-800 border border-slate-700 rounded-lg p-5 space-y-5">
 
             {# Period info — required #}
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <label class="block">
                     <span class="text-sm font-medium text-slate-300">Period End Date *</span>
-                    <input type="date" name="period_end_date" required
-                           class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2
+                    <input type="date" name="period_end_date" required class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2
                                   text-slate-100 focus:border-emerald-500 focus:outline-none">
                     <span class="text-xs text-slate-500">e.g. 2025-12-31 for FY2025</span>
                 </label>
 
                 <label class="block">
                     <span class="text-sm font-medium text-slate-300">Period Type *</span>
-                    <select name="period_type" required
-                            class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2
+                    <select name="period_type" required class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2
                                    text-slate-100 focus:border-emerald-500 focus:outline-none">
                         <option value="annual">Annual</option>
                         <option value="quarterly">Quarterly</option>
@@ -108,22 +131,22 @@
                     <label class="block">
                         <span class="text-sm text-slate-300">Revenue</span>
                         <input type="number" step="any" name="revenue"
-                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                            class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
                     </label>
                     <label class="block">
                         <span class="text-sm text-slate-300">Net Income</span>
                         <input type="number" step="any" name="net_income"
-                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                            class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
                     </label>
                     <label class="block">
                         <span class="text-sm text-slate-300">Operating Income</span>
                         <input type="number" step="any" name="operating_income"
-                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                            class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
                     </label>
                     <label class="block">
                         <span class="text-sm text-slate-300">EPS (per share)</span>
                         <input type="number" step="any" name="eps"
-                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                            class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
                     </label>
                 </div>
             </fieldset>
@@ -135,17 +158,17 @@
                     <label class="block">
                         <span class="text-sm text-slate-300">Total Assets</span>
                         <input type="number" step="any" name="total_assets"
-                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                            class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
                     </label>
                     <label class="block">
                         <span class="text-sm text-slate-300">Total Equity</span>
                         <input type="number" step="any" name="total_equity"
-                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                            class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
                     </label>
                     <label class="block">
                         <span class="text-sm text-slate-300">Total Debt</span>
                         <input type="number" step="any" name="total_debt"
-                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                            class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
                     </label>
                 </div>
             </fieldset>
@@ -157,12 +180,12 @@
                     <label class="block">
                         <span class="text-sm text-slate-300">Operating Cash Flow</span>
                         <input type="number" step="any" name="operating_cash_flow"
-                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                            class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
                     </label>
                     <label class="block">
                         <span class="text-sm text-slate-300">Free Cash Flow</span>
                         <input type="number" step="any" name="free_cash_flow"
-                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                            class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
                     </label>
                 </div>
             </fieldset>
@@ -174,22 +197,22 @@
                     <label class="block">
                         <span class="text-sm text-slate-300">P/E Ratio</span>
                         <input type="number" step="any" name="pe_ratio"
-                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                            class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
                     </label>
                     <label class="block">
                         <span class="text-sm text-slate-300">P/B Ratio</span>
                         <input type="number" step="any" name="pb_ratio"
-                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                            class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
                     </label>
                     <label class="block">
                         <span class="text-sm text-slate-300">Dividend Yield (%)</span>
                         <input type="number" step="any" name="dividend_yield"
-                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                            class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
                     </label>
                     <label class="block">
                         <span class="text-sm text-slate-300">Shares Outstanding</span>
                         <input type="number" step="any" name="shares_outstanding"
-                               class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                            class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
                     </label>
                 </div>
             </fieldset>
@@ -197,9 +220,8 @@
             {# Notes #}
             <label class="block">
                 <span class="text-sm font-medium text-slate-300">Notes (optional)</span>
-                <textarea name="notes" rows="2"
-                          placeholder="Source URL, caveats, anything weird about this period..."
-                          class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2
+                <textarea name="notes" rows="2" placeholder="Source URL, caveats, anything weird about this period..."
+                    class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2
                                  text-slate-100 focus:border-emerald-500 focus:outline-none"></textarea>
             </label>
 
@@ -209,7 +231,7 @@
                     * required fields. All other fields can be left blank.
                 </p>
                 <button type="submit"
-                        class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-6 py-2 rounded transition">
+                    class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-6 py-2 rounded transition">
                     Save Period
                 </button>
             </div>

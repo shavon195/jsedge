@@ -93,3 +93,183 @@ def get_stock_with_fundamentals(stock_id: int) -> Optional[dict]:
         "stock":        dict(stock_row),
         "fundamentals": [dict(r) for r in fundamentals_rows],
     }
+
+# ---------------------------------------------------------------------------
+# Save: insert or update a fundamentals row
+# ---------------------------------------------------------------------------
+def save_fundamental(stock_id: int, form_data: dict) -> dict:
+    """
+    Insert or update a single fundamentals row.
+
+    Uses ON CONFLICT(stock_id, period_end_date, period_type) so re-saving
+    the same period updates the existing row instead of failing.
+
+    Args:
+        stock_id:  the stock's database id.
+        form_data: dict from the submitted HTML form. Must include
+                   'period_end_date' and 'period_type'. All other fields
+                   are optional and stored as NULL if missing/empty.
+
+    Returns:
+        Dict with keys:
+            success (bool)
+            action  ('inserted' | 'updated')
+            errors  (list of error strings — empty if success)
+    """
+    errors = []
+
+    # --- required fields ---
+    period_end_date = form_data.get("period_end_date", "").strip()
+    period_type     = form_data.get("period_type", "").strip()
+
+    if not period_end_date:
+        errors.append("Period end date is required.")
+    if period_type not in ("quarterly", "half_year", "annual", "ttm"):
+        errors.append("Period type must be quarterly, half_year, annual, or ttm.")
+
+    if errors:
+        return {"success": False, "action": None, "errors": errors}
+
+# ---------------------------------------------------------------------------
+# Fetch one fundamental row by its id (for view/edit pages)
+# ---------------------------------------------------------------------------
+def get_fundamental_by_id(fundamental_id: int) -> Optional[dict]:
+    """Fetch one fundamental row joined with its stock info."""
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            """
+            SELECT f.*,
+                   s.symbol, s.name AS stock_name, s.market
+            FROM fundamentals f
+            JOIN stocks s ON s.id = f.stock_id
+            WHERE f.id = ?
+            """,
+            (fundamental_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    return dict(row) if row else None
+
+
+# ---------------------------------------------------------------------------
+# Delete one fundamental row
+# ---------------------------------------------------------------------------
+def delete_fundamental(fundamental_id: int) -> bool:
+    """Delete a fundamental row by id. Returns True if a row was deleted."""
+    conn = get_connection()
+    try:
+        cursor = conn.execute(
+            "DELETE FROM fundamentals WHERE id = ?",
+            (fundamental_id,),
+        )
+        conn.commit()
+        deleted = cursor.rowcount > 0
+    finally:
+        conn.close()
+
+    if deleted:
+        log.info("Deleted fundamental id=%d", fundamental_id)
+    else:
+        log.warning("Tried to delete non-existent fundamental id=%d", fundamental_id)
+
+    return deleted
+
+    # --- helper to convert form strings to floats / None ---
+    def to_float(field: str):
+        raw = form_data.get(field, "")
+        if raw is None:
+            return None
+        raw = str(raw).strip()
+        if raw == "":
+            return None
+        try:
+            return float(raw)
+        except ValueError:
+            errors.append(f"'{field}' must be a number (got: {raw!r}).")
+            return None
+
+    # Numeric fields — all optional.
+    numeric_fields = [
+        "eps", "pe_ratio", "pb_ratio", "dividend_yield",
+        "total_debt", "total_equity", "total_assets",
+        "net_income", "operating_income",
+        "operating_cash_flow", "free_cash_flow",
+        "revenue", "shares_outstanding",
+    ]
+    values = {f: to_float(f) for f in numeric_fields}
+
+    # Notes — string, optional.
+    notes = (form_data.get("notes") or "").strip() or None
+
+    if errors:
+        return {"success": False, "action": None, "errors": errors}
+
+    # --- check whether this period already exists (insert vs update) ---
+    conn = get_connection()
+    try:
+        existing = conn.execute(
+            "SELECT id FROM fundamentals "
+            "WHERE stock_id = ? AND period_end_date = ? AND period_type = ?",
+            (stock_id, period_end_date, period_type),
+        ).fetchone()
+
+        action = "updated" if existing else "inserted"
+
+        conn.execute(
+            """
+            INSERT INTO fundamentals (
+                stock_id, period_end_date, period_type,
+                eps, pe_ratio, pb_ratio, dividend_yield,
+                total_debt, total_equity, total_assets,
+                net_income, operating_income,
+                operating_cash_flow, free_cash_flow,
+                revenue, shares_outstanding,
+                source, notes
+            ) VALUES (
+                ?, ?, ?,
+                ?, ?, ?, ?,
+                ?, ?, ?,
+                ?, ?,
+                ?, ?,
+                ?, ?,
+                'manual', ?
+            )
+            ON CONFLICT(stock_id, period_end_date, period_type) DO UPDATE SET
+                eps                 = excluded.eps,
+                pe_ratio            = excluded.pe_ratio,
+                pb_ratio            = excluded.pb_ratio,
+                dividend_yield      = excluded.dividend_yield,
+                total_debt          = excluded.total_debt,
+                total_equity        = excluded.total_equity,
+                total_assets        = excluded.total_assets,
+                net_income          = excluded.net_income,
+                operating_income    = excluded.operating_income,
+                operating_cash_flow = excluded.operating_cash_flow,
+                free_cash_flow      = excluded.free_cash_flow,
+                revenue             = excluded.revenue,
+                shares_outstanding  = excluded.shares_outstanding,
+                notes               = excluded.notes,
+                updated_at          = datetime('now')
+            """,
+            (
+                stock_id, period_end_date, period_type,
+                values["eps"], values["pe_ratio"], values["pb_ratio"],
+                values["dividend_yield"],
+                values["total_debt"], values["total_equity"], values["total_assets"],
+                values["net_income"], values["operating_income"],
+                values["operating_cash_flow"], values["free_cash_flow"],
+                values["revenue"], values["shares_outstanding"],
+                notes,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    log.info(
+        "Fundamental %s for stock_id=%d, period=%s/%s",
+        action, stock_id, period_end_date, period_type,
+    )
+    return {"success": True, "action": action, "errors": []}

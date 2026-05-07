@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block content %}
+{# Helper macro for nullable numbers #}
+{% macro show_num(v, dp=0) -%}
+    {%- if v is not none -%}{{ "{:,.{dp}f}".format(v, dp=dp) }}{%- else -%}—{%- endif -%}
+{%- endmacro %}
+
+<div class="space-y-6">
+    {# Breadcrumb #}
+    <nav class="text-sm text-slate-500 flex items-center gap-2">
+        <a href="/fundamentals" class="hover:text-emerald-400">Fundamentals</a>
+        <span>›</span>
+        <a href="/fundamentals/stock/{{ f.stock_id }}" class="hover:text-emerald-400">{{ f.symbol }}</a>
+        <span>›</span>
+        <span class="text-slate-300">{{ f.period_end_date }} ({{ f.period_type }})</span>
+    </nav>
+
+    {# Flash banner #}
+    {% if flash_msg %}
+    <div class="rounded-lg p-4 border
+                {% if flash_kind == 'success' %}
+                  bg-emerald-900/30 border-emerald-700/50 text-emerald-200
+                {% else %}
+                  bg-rose-900/30 border-rose-700/50 text-rose-200
+                {% endif %}">
+        <div class="flex items-start gap-3">
+            <span class="text-xl leading-none">
+                {% if flash_kind == 'success' %}✅{% else %}⚠️{% endif %}
+            </span>
+            <div class="flex-1">
+                <p class="font-semibold">
+                    {% if flash_kind == 'success' %}Saved{% else %}Couldn't save{% endif %}
+                </p>
+                <p class="text-sm opacity-90">{{ flash_msg }}</p>
+            </div>
+            <a href="/fundamentals/period/{{ f.id }}" class="text-sm opacity-60 hover:opacity-100">✕</a>
+        </div>
+    </div>
+    {% endif %}
+
+    {# Header #}
+    <div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
+        <div class="flex items-baseline gap-3 mb-1">
+            <h1 class="text-3xl font-bold font-mono text-emerald-400">{{ f.symbol }}</h1>
+            <span class="text-xs px-2 py-1 bg-slate-700 rounded text-slate-300">{{ f.market }}</span>
+        </div>
+        <p class="text-slate-300">{{ f.stock_name }}</p>
+        <p class="text-xs text-slate-500 mt-2">
+            Period: <span class="text-slate-300 font-mono">{{ f.period_end_date }}</span>
+            <span class="mx-2">·</span>
+            Type: <span class="text-slate-300 uppercase">{{ f.period_type }}</span>
+            <span class="mx-2">·</span>
+            Source: <span class="text-slate-300">{{ f.source }}</span>
+        </p>
+    </div>
+
+    {# Read-only summary card #}
+    <div class="bg-slate-800 border border-slate-700 rounded-lg p-5 space-y-4">
+        <h2 class="text-lg font-semibold text-slate-300">Saved Values</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div class="space-y-2">
+                <p class="text-xs text-slate-500 uppercase tracking-wide">Income Statement</p>
+                <div class="flex justify-between"><span class="text-slate-400">Revenue</span><span class="font-mono">{{ show_num(f.revenue) }}</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">Net Income</span><span class="font-mono">{{ show_num(f.net_income) }}</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">Operating Income</span><span class="font-mono">{{ show_num(f.operating_income) }}</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">EPS</span><span class="font-mono">{{ show_num(f.eps, 4) }}</span></div>
+            </div>
+            <div class="space-y-2">
+                <p class="text-xs text-slate-500 uppercase tracking-wide">Balance Sheet</p>
+                <div class="flex justify-between"><span class="text-slate-400">Total Assets</span><span class="font-mono">{{ show_num(f.total_assets) }}</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">Total Equity</span><span class="font-mono">{{ show_num(f.total_equity) }}</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">Total Debt</span><span class="font-mono">{{ show_num(f.total_debt) }}</span></div>
+            </div>
+            <div class="space-y-2">
+                <p class="text-xs text-slate-500 uppercase tracking-wide">Cash Flow & Ratios</p>
+                <div class="flex justify-between"><span class="text-slate-400">Operating CF</span><span class="font-mono">{{ show_num(f.operating_cash_flow) }}</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">Free CF</span><span class="font-mono">{{ show_num(f.free_cash_flow) }}</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">P/E</span><span class="font-mono">{{ show_num(f.pe_ratio, 2) }}</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">P/B</span><span class="font-mono">{{ show_num(f.pb_ratio, 2) }}</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">Div Yield</span><span class="font-mono">{{ show_num(f.dividend_yield, 2) }}</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">Shares Out.</span><span class="font-mono">{{ show_num(f.shares_outstanding) }}</span></div>
+            </div>
+        </div>
+
+        {% if f.notes %}
+        <div class="pt-3 border-t border-slate-700">
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Notes</p>
+            <p class="text-sm text-slate-300 whitespace-pre-wrap">{{ f.notes }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    {# Edit form #}
+    <div>
+        <h2 class="text-xl font-semibold mb-3">Edit Period</h2>
+
+        <form method="post"
+              action="/fundamentals/period/{{ f.id }}/update"
+              class="bg-slate-800 border border-slate-700 rounded-lg p-5 space-y-5">
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label class="block">
+                    <span class="text-sm font-medium text-slate-300">Period End Date *</span>
+                    <input type="date" name="period_end_date" required value="{{ f.period_end_date }}"
+                           class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                </label>
+                <label class="block">
+                    <span class="text-sm font-medium text-slate-300">Period Type *</span>
+                    <select name="period_type" required
+                            class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">
+                        {% for opt in ['annual', 'quarterly', 'half_year', 'ttm'] %}
+                        <option value="{{ opt }}" {% if f.period_type == opt %}selected{% endif %}>{{ opt|replace('_', ' ')|title }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+            </div>
+
+            <fieldset class="border border-slate-700 rounded p-4">
+                <legend class="px-2 text-xs uppercase tracking-wide text-slate-400">Income Statement</legend>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label class="block"><span class="text-sm text-slate-300">Revenue</span>
+                        <input type="number" step="any" name="revenue" value="{{ f.revenue if f.revenue is not none else '' }}" class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"></label>
+                    <label class="block"><span class="text-sm text-slate-300">Net Income</span>
+                        <input type="number" step="any" name="net_income" value="{{ f.net_income if f.net_income is not none else '' }}" class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"></label>
+                    <label class="block"><span class="text-sm text-slate-300">Operating Income</span>
+                        <input type="number" step="any" name="operating_income" value="{{ f.operating_income if f.operating_income is not none else '' }}" class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"></label>
+                    <label class="block"><span class="text-sm text-slate-300">EPS (per share)</span>
+                        <input type="number" step="any" name="eps" value="{{ f.eps if f.eps is not none else '' }}" class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"></label>
+                </div>
+            </fieldset>
+
+            <fieldset class="border border-slate-700 rounded p-4">
+                <legend class="px-2 text-xs uppercase tracking-wide text-slate-400">Balance Sheet</legend>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <label class="block"><span class="text-sm text-slate-300">Total Assets</span>
+                        <input type="number" step="any" name="total_assets" value="{{ f.total_assets if f.total_assets is not none else '' }}" class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"></label>
+                    <label class="block"><span class="text-sm text-slate-300">Total Equity</span>
+                        <input type="number" step="any" name="total_equity" value="{{ f.total_equity if f.total_equity is not none else '' }}" class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"></label>
+                    <label class="block"><span class="text-sm text-slate-300">Total Debt</span>
+                        <input type="number" step="any" name="total_debt" value="{{ f.total_debt if f.total_debt is not none else '' }}" class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"></label>
+                </div>
+            </fieldset>
+
+            <fieldset class="border border-slate-700 rounded p-4">
+                <legend class="px-2 text-xs uppercase tracking-wide text-slate-400">Cash Flow</legend>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label class="block"><span class="text-sm text-slate-300">Operating Cash Flow</span>
+                        <input type="number" step="any" name="operating_cash_flow" value="{{ f.operating_cash_flow if f.operating_cash_flow is not none else '' }}" class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"></label>
+                    <label class="block"><span class="text-sm text-slate-300">Free Cash Flow</span>
+                        <input type="number" step="any" name="free_cash_flow" value="{{ f.free_cash_flow if f.free_cash_flow is not none else '' }}" class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"></label>
+                </div>
+            </fieldset>
+
+            <fieldset class="border border-slate-700 rounded p-4">
+                <legend class="px-2 text-xs uppercase tracking-wide text-slate-400">Ratios &amp; Other</legend>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <label class="block"><span class="text-sm text-slate-300">P/E Ratio</span>
+                        <input type="number" step="any" name="pe_ratio" value="{{ f.pe_ratio if f.pe_ratio is not none else '' }}" class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"></label>
+                    <label class="block"><span class="text-sm text-slate-300">P/B Ratio</span>
+                        <input type="number" step="any" name="pb_ratio" value="{{ f.pb_ratio if f.pb_ratio is not none else '' }}" class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"></label>
+                    <label class="block"><span class="text-sm text-slate-300">Dividend Yield (%)</span>
+                        <input type="number" step="any" name="dividend_yield" value="{{ f.dividend_yield if f.dividend_yield is not none else '' }}" class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"></label>
+                    <label class="block"><span class="text-sm text-slate-300">Shares Outstanding</span>
+                        <input type="number" step="any" name="shares_outstanding" value="{{ f.shares_outstanding if f.shares_outstanding is not none else '' }}" class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"></label>
+                </div>
+            </fieldset>
+
+            <label class="block">
+                <span class="text-sm font-medium text-slate-300">Notes</span>
+                <textarea name="notes" rows="2" class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none">{{ f.notes or '' }}</textarea>
+            </label>
+
+            <div class="flex items-center justify-between pt-2">
+                <p class="text-xs text-slate-500">* required fields.</p>
+                <button type="submit"
+                        class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-6 py-2 rounded transition">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+
+    {# Delete (separate form so it doesn't interfere with edit) #}
+    <div class="border border-rose-900/40 rounded-lg p-5 bg-rose-950/20">
+        <h2 class="text-lg font-semibold text-rose-300 mb-2">Danger Zone</h2>
+        <p class="text-sm text-slate-400 mb-4">
+            Permanently delete this period. This cannot be undone.
+        </p>
+        <form method="post"
+              action="/fundamentals/period/{{ f.id }}/delete"
+              onsubmit="return confirm('Permanently delete this period? This cannot be undone.');">
+            <button type="submit"
+                    class="bg-rose-700 hover:bg-rose-600 text-white text-sm font-medium px-4 py-2 rounded transition">
+                Delete Period
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
