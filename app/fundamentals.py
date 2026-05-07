@@ -3,7 +3,7 @@ JSEdge — Fundamentals data layer.
 
 Functions for querying and writing fundamentals data:
 - list_stocks_with_status() : list all stocks + how many fundamental rows each has
-- get_fundamentals_for_stock() : fetch all fundamental rows for one stock
+- get_stock_with_fundamentals() : fetch one stock + its fundamentals
 - get_fundamental_by_id()    : fetch a single row for editing
 - save_fundamental()          : insert or update one row
 - delete_fundamental()        : remove a row by id
@@ -40,17 +40,21 @@ def list_stocks_with_status() -> list[dict]:
                 s.symbol,
                 s.name,
                 s.market,
-                COUNT(f.id) AS fundamentals_count
+                COUNT(f.id)         AS fundamentals_count,
+                MAX(f.updated_at)   AS last_updated
             FROM stocks s
             LEFT JOIN fundamentals f ON f.stock_id = s.id
             WHERE s.is_listed = 1
             GROUP BY s.id, s.symbol, s.name, s.market
-            ORDER BY fundamentals_count ASC, s.symbol ASC
+            ORDER BY fundamentals_count ASC,
+                     last_updated ASC NULLS FIRST,
+                     s.symbol ASC
         """).fetchall()
     finally:
         conn.close()
 
     return [dict(r) for r in rows]
+
 
 # ---------------------------------------------------------------------------
 # Single-stock view: fetch one stock + all its fundamentals
@@ -94,6 +98,30 @@ def get_stock_with_fundamentals(stock_id: int) -> Optional[dict]:
         "fundamentals": [dict(r) for r in fundamentals_rows],
     }
 
+
+# ---------------------------------------------------------------------------
+# Fetch one fundamental row by its id (for view/edit pages)
+# ---------------------------------------------------------------------------
+def get_fundamental_by_id(fundamental_id: int) -> Optional[dict]:
+    """Fetch one fundamental row joined with its stock info."""
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            """
+            SELECT f.*,
+                   s.symbol, s.name AS stock_name, s.market
+            FROM fundamentals f
+            JOIN stocks s ON s.id = f.stock_id
+            WHERE f.id = ?
+            """,
+            (fundamental_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    return dict(row) if row else None
+
+
 # ---------------------------------------------------------------------------
 # Save: insert or update a fundamentals row
 # ---------------------------------------------------------------------------
@@ -129,52 +157,6 @@ def save_fundamental(stock_id: int, form_data: dict) -> dict:
 
     if errors:
         return {"success": False, "action": None, "errors": errors}
-
-# ---------------------------------------------------------------------------
-# Fetch one fundamental row by its id (for view/edit pages)
-# ---------------------------------------------------------------------------
-def get_fundamental_by_id(fundamental_id: int) -> Optional[dict]:
-    """Fetch one fundamental row joined with its stock info."""
-    conn = get_connection()
-    try:
-        row = conn.execute(
-            """
-            SELECT f.*,
-                   s.symbol, s.name AS stock_name, s.market
-            FROM fundamentals f
-            JOIN stocks s ON s.id = f.stock_id
-            WHERE f.id = ?
-            """,
-            (fundamental_id,),
-        ).fetchone()
-    finally:
-        conn.close()
-
-    return dict(row) if row else None
-
-
-# ---------------------------------------------------------------------------
-# Delete one fundamental row
-# ---------------------------------------------------------------------------
-def delete_fundamental(fundamental_id: int) -> bool:
-    """Delete a fundamental row by id. Returns True if a row was deleted."""
-    conn = get_connection()
-    try:
-        cursor = conn.execute(
-            "DELETE FROM fundamentals WHERE id = ?",
-            (fundamental_id,),
-        )
-        conn.commit()
-        deleted = cursor.rowcount > 0
-    finally:
-        conn.close()
-
-    if deleted:
-        log.info("Deleted fundamental id=%d", fundamental_id)
-    else:
-        log.warning("Tried to delete non-existent fundamental id=%d", fundamental_id)
-
-    return deleted
 
     # --- helper to convert form strings to floats / None ---
     def to_float(field: str):
@@ -273,3 +255,70 @@ def delete_fundamental(fundamental_id: int) -> bool:
         action, stock_id, period_end_date, period_type,
     )
     return {"success": True, "action": action, "errors": []}
+
+
+# ---------------------------------------------------------------------------
+# Delete one fundamental row
+# ---------------------------------------------------------------------------
+def delete_fundamental(fundamental_id: int) -> bool:
+    """Delete a fundamental row by id. Returns True if a row was deleted."""
+    conn = get_connection()
+    try:
+        cursor = conn.execute(
+            "DELETE FROM fundamentals WHERE id = ?",
+            (fundamental_id,),
+        )
+        conn.commit()
+        deleted = cursor.rowcount > 0
+    finally:
+        conn.close()
+
+    if deleted:
+        log.info("Deleted fundamental id=%d", fundamental_id)
+    else:
+        log.warning("Tried to delete non-existent fundamental id=%d", fundamental_id)
+
+    return deleted
+
+# ---------------------------------------------------------------------------
+# Navigation helper — find the prev/next stock relative to one we're viewing
+# ---------------------------------------------------------------------------
+def get_prev_next_stocks(stock_id: int) -> dict:
+    """
+    Find the stock alphabetically before and after the given stock.
+
+    Used to power Prev / Next navigation on the per-stock fundamentals page.
+
+    Args:
+        stock_id: the current stock's id.
+
+    Returns:
+        Dict with keys 'prev' and 'next', each being a dict of
+        {id, symbol} or None if there is no prev/next.
+    """
+    conn = get_connection()
+    try:
+        # Pull all listed stocks ordered by symbol (matches the list page).
+        rows = conn.execute(
+            "SELECT id, symbol FROM stocks WHERE is_listed = 1 "
+            "ORDER BY symbol ASC"
+        ).fetchall()
+    finally:
+        conn.close()
+
+    stocks = [dict(r) for r in rows]
+
+    # Find current stock's position.
+    current_index = None
+    for i, s in enumerate(stocks):
+        if s["id"] == stock_id:
+            current_index = i
+            break
+
+    if current_index is None:
+        return {"prev": None, "next": None}
+
+    prev_stock = stocks[current_index - 1] if current_index > 0 else None
+    next_stock = stocks[current_index + 1] if current_index < len(stocks) - 1 else None
+
+    return {"prev": prev_stock, "next": next_stock}

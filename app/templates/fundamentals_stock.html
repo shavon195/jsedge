@@ -3,9 +3,38 @@
 {% block content %}
 <div class="space-y-6">
     {# Breadcrumb back to list #}
-    <nav class="text-sm text-slate-500">
-        <a href="/fundamentals" class="hover:text-emerald-400">← Back to all stocks</a>
-    </nav>
+    <div class="flex items-center justify-between gap-4 text-sm">
+        <nav class="text-slate-500">
+            <a href="/fundamentals" class="hover:text-emerald-400">← Back to all stocks</a>
+        </nav>
+
+        {# Prev / Next stock navigation #}
+        <div class="flex items-center gap-2">
+            {% if nav.prev %}
+            <a href="/fundamentals/stock/{{ nav.prev.id }}"
+                class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 text-xs font-mono transition">
+                ← {{ nav.prev.symbol }}
+            </a>
+            {% else %}
+            <span
+                class="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded text-slate-600 text-xs font-mono cursor-not-allowed">
+                ← first
+            </span>
+            {% endif %}
+
+            {% if nav.next %}
+            <a href="/fundamentals/stock/{{ nav.next.id }}"
+                class="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 border border-emerald-600 rounded text-white text-xs font-mono font-semibold transition">
+                {{ nav.next.symbol }} →
+            </a>
+            {% else %}
+            <span
+                class="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded text-slate-600 text-xs font-mono cursor-not-allowed">
+                last →
+            </span>
+            {% endif %}
+        </div>
+    </div>
 
     {# Flash banner — shows after save/error redirects #}
     {% if flash_msg %}
@@ -98,7 +127,7 @@
 
     {# Add new period form #}
     <div>
-        <h2 class="text-xl font-semibold mb-3">Add New Period</h2>
+        <h2 id="add-period" class="text-xl font-semibold mb-3">Add New Period</h2>
 
         <form method="post" action="/fundamentals/stock/{{ stock.id }}/save"
             class="bg-slate-800 border border-slate-700 rounded-lg p-5 space-y-5">
@@ -226,14 +255,20 @@
             </label>
 
             {# Submit #}
-            <div class="flex items-center justify-between pt-2">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
                 <p class="text-xs text-slate-500">
                     * required fields. All other fields can be left blank.
                 </p>
-                <button type="submit"
-                    class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-6 py-2 rounded transition">
-                    Save Period
-                </button>
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <button type="submit" name="action" value="save"
+                        class="bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium px-4 py-2 rounded transition">
+                        Save & Done
+                    </button>
+                    <button type="submit" name="action" value="save_and_add"
+                        class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2 rounded transition">
+                        Save & Add Another →
+                    </button>
+                </div>
             </div>
         </form>
     </div>

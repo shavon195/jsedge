@@ -103,8 +103,9 @@ async def fundamentals_for_stock(
     flash: str = "",
 ):
     """Show one stock's fundamentals + form to add a new period."""
-    from app.fundamentals import get_stock_with_fundamentals
+    from app.fundamentals import get_stock_with_fundamentals, get_prev_next_stocks
     data = get_stock_with_fundamentals(stock_id)
+    nav = get_prev_next_stocks(stock_id)
 
     if data is None:
         return templates.TemplateResponse(
@@ -131,6 +132,7 @@ async def fundamentals_for_stock(
             "page_title":   f"{data['stock']['symbol']} — Fundamentals",
             "stock":        data["stock"],
             "fundamentals": data["fundamentals"],
+            "nav":          nav,
             "flash_kind":   flash_kind,
             "flash_msg":    flash_msg,
         },
@@ -140,6 +142,7 @@ async def fundamentals_for_stock(
 async def save_fundamental_period(
     request: Request,
     stock_id: int,
+    action: str = Form("save"),
     period_end_date: str = Form(...),
     period_type:     str = Form(...),
     eps:                 str = Form(""),
@@ -189,8 +192,14 @@ async def save_fundamental_period(
         flash_msg = "error_" + " | ".join(result["errors"])
 
     # Redirect back to the stock's fundamentals page (PRG pattern).
+    # If the user clicked "Save and Add Another", append #add-period so
+    # the browser auto-scrolls to the form.
+    redirect_url = f"/fundamentals/stock/{stock_id}?flash={flash_msg}"
+    if action == "save_and_add" and result["success"]:
+        redirect_url += "#add-period"
+
     return RedirectResponse(
-        url=f"/fundamentals/stock/{stock_id}?flash={flash_msg}",
+        url=redirect_url,
         status_code=303,  # 303 = redirect a POST to a GET
     )
 

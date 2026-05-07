@@ -15,20 +15,42 @@
     {% set with_data   = stocks|selectattr("fundamentals_count", ">", 0)|list|length %}
     {% set empty_count = total - with_data %}
 
-    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4 grid grid-cols-3 gap-4 text-center">
+    {# Compute progress percentage #}
+{% set pct = ((with_data / total) * 100) | round(0, 'floor') | int if total > 0 else 0 %}
+
+<div class="bg-slate-800 border border-slate-700 rounded-lg p-5 space-y-4">
+    {# Top row: 3 stat cards #}
+    <div class="grid grid-cols-3 gap-4 text-center">
         <div>
             <div class="text-2xl font-bold">{{ total }}</div>
-            <div class="text-xs text-slate-400 uppercase tracking-wide">Total stocks</div>
+            <div class="text-xs text-slate-400 uppercase tracking-wide">Total</div>
         </div>
         <div>
             <div class="text-2xl font-bold text-emerald-400">{{ with_data }}</div>
-            <div class="text-xs text-slate-400 uppercase tracking-wide">With data</div>
+            <div class="text-xs text-slate-400 uppercase tracking-wide">With Data</div>
         </div>
         <div>
             <div class="text-2xl font-bold text-amber-400">{{ empty_count }}</div>
             <div class="text-xs text-slate-400 uppercase tracking-wide">Empty</div>
         </div>
     </div>
+
+    {# Progress bar #}
+    <div>
+        <div class="flex items-baseline justify-between mb-1.5">
+            <span class="text-xs uppercase tracking-wide text-slate-400">Coverage</span>
+            <span class="text-sm font-mono text-slate-300">
+                {{ with_data }} / {{ total }}
+                <span class="text-slate-500">·</span>
+                <span class="text-emerald-400 font-semibold">{{ pct }}%</span>
+            </span>
+        </div>
+        <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden">
+            <div class="bg-gradient-to-r from-emerald-500 to-emerald-400 h-2 transition-all duration-500"
+                 style="width: {{ pct }}%"></div>
+        </div>
+    </div>
+</div>
 
     {# Table of all stocks #}
     <div class="overflow-x-auto bg-slate-800 border border-slate-700 rounded-lg">
