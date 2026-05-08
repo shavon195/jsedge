@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS scores (
     notes             TEXT,
     created_at        TEXT    NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE,
-    UNIQUE (stock_id, date)
+    UNIQUE (stock_id, date, horizon)
 );
 
 CREATE INDEX IF NOT EXISTS idx_scores_stock_date ON scores(stock_id, date);

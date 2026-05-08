@@ -4,16 +4,53 @@
 
 {% if active_tab == "jse" %}
 <div class="space-y-8">
+    {# Horizon labels for display — maps internal keys to friendly UI text #}
+    {% set horizon_labels = {
+        '6_months': '6 months',
+        '1_year':   '1 year',
+        '2_years':  '2 years',
+        '5_years':  '5 years',
+        '10_years': '10+ years'
+    } %}
+
     <div>
-        <h1 class="text-3xl font-bold mb-2">JSE — Today's Technical Movers</h1>
-        <p class="text-slate-400 mb-3">
-            Stocks ranked by short-term technical signals (price position, volume, volatility, dividends)
-            {% if rankings.date %} for {{ rankings.date }}{% endif %}.
+        <h1 class="text-3xl font-bold mb-2">JSE — Stock Rankings</h1>
+        <p class="text-slate-400 mb-4">
+            Ranked for <span class="text-emerald-300 font-semibold">{{ horizon_labels[horizon] }}</span> investment horizon
+            {% if rankings.date %}<span class="text-slate-500">·</span> {{ rankings.date }}{% endif %}.
         </p>
-        <div class="bg-amber-900/20 border border-amber-700/40 rounded-lg p-3 text-sm text-amber-200/90">
-            ⚠️ <strong>Not a long-term buy signal.</strong>
-            Horizon-aware rankings (6mo / 1yr / 2yr / 5yr / 10+yr) using fundamentals are coming next.
+
+        {# Horizon dropdown #}
+        <form method="get" action="/" class="mb-4">
+            <label class="flex items-center gap-3 text-sm">
+                <span class="text-slate-400">Investment horizon:</span>
+                <select name="horizon" onchange="this.form.submit()"
+                        class="bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-slate-100 font-medium focus:border-emerald-500 focus:outline-none">
+                    {% for h in horizons_avail %}
+                    <option value="{{ h }}" {% if h == horizon %}selected{% endif %}>
+                        {{ horizon_labels[h] }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </label>
+        </form>
+
+        {# Honest disclosure about what the score is built from #}
+        {% if horizon in ['6_months', '1_year'] %}
+        <div class="bg-slate-800/60 border border-slate-700 rounded-lg p-3 text-sm text-slate-300">
+            🔍 <strong>Short-term view.</strong> Mostly technical signals (price position, volume, dividend yield). Best for 6-12 month tactical decisions.
         </div>
+        {% elif horizon == '2_years' %}
+        <div class="bg-slate-800/60 border border-slate-700 rounded-lg p-3 text-sm text-slate-300">
+            🔄 <strong>Medium-term view.</strong> Mix of technical signals and fundamentals. Companies need 1+ year of fundamentals data to qualify for the main ranking.
+        </div>
+        {% else %}
+        <div class="bg-emerald-900/20 border border-emerald-700/40 rounded-lg p-3 text-sm text-emerald-100">
+            🏛️ <strong>Long-term quality view.</strong> Pure fundamentals (ROE, FCF margin, debt safety, profit margin). Companies need
+            {% if horizon == '5_years' %}3+{% else %}5+{% endif %}
+            years of fundamentals data for main ranking. As you enter more data, this view comes alive.
+        </div>
+        {% endif %}
     </div>
 
     {% if rankings.main %}

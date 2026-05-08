@@ -759,7 +759,7 @@ def save_scores_to_db(scored: list[dict], target_date: date) -> dict:
                      fcf_margin_score, profit_margin_score,
                      horizon, data_completeness, notes)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(stock_id, date) DO UPDATE SET
+                ON CONFLICT(stock_id, date, horizon) DO UPDATE SET
                     composite_score     = excluded.composite_score,
                     position_score      = excluded.position_score,
                     volume_score        = excluded.volume_score,
@@ -804,44 +804,54 @@ def save_scores_to_db(scored: list[dict], target_date: date) -> dict:
 # ---------------------------------------------------------------------------
 # Read scores back from the database for display
 # ---------------------------------------------------------------------------
-def get_latest_rankings(limit: int = 25) -> dict:
+def get_latest_rankings(
+    limit: int = 25,
+    horizon: str = DEFAULT_HORIZON,
+) -> dict:
     """
-    Fetch the most recent day's rankings from the scores table.
+    Fetch the most recent day's rankings for a given horizon.
 
-    Splits results into main and incomplete-data lists based on the
-    same MAIN_RANKING_THRESHOLD used by the scorer.
+    Looks at the most recent date for which scores exist matching this
+    horizon, then splits results into main and incomplete-data lists
+    based on MAIN_RANKING_THRESHOLD.
 
     Args:
-        limit: max number of stocks to return per list. Default 25.
+        limit:   max number of stocks to return per list.
+        horizon: which horizon to fetch (one of HORIZON_WEIGHTS keys).
 
     Returns:
         Dict with:
-            date:        the date these rankings are from (str, ISO format)
-            main:        list of top N stocks with full enough data
-            incomplete:  list of top N stocks with incomplete data
-            total_main:  total count in main ranking (before limit)
-            total_incomplete: total count in incomplete (before limit)
+            date:             ISO date string (or None if no scores)
+            horizon:          the horizon used
+            main:             list of top-N main ranking stocks
+            incomplete:       list of top-N incomplete-data stocks
+            total_main:       total count in main ranking
+            total_incomplete: total count in incomplete
     """
+    if horizon not in HORIZON_WEIGHTS:
+        log.warning("Unknown horizon '%s', falling back to default.", horizon)
+        horizon = DEFAULT_HORIZON
+
     conn = get_connection()
     try:
-        # Find the most recent date we have scores for.
+        # Find the most recent date for which we have scores for this horizon.
         latest_row = conn.execute(
-            "SELECT MAX(date) AS latest FROM scores"
+            "SELECT MAX(date) AS latest FROM scores WHERE horizon = ?",
+            (horizon,),
         ).fetchone()
 
         if not latest_row or not latest_row["latest"]:
             return {
-                "date": None,
-                "main": [],
-                "incomplete": [],
-                "total_main": 0,
+                "date":             None,
+                "horizon":          horizon,
+                "main":             [],
+                "incomplete":       [],
+                "total_main":       0,
                 "total_incomplete": 0,
             }
 
         latest_date = latest_row["latest"]
 
-        # Pull all stocks scored on that date, joined with stock info
-        # and that day's price.
         rows = conn.execute(
             """
             SELECT
@@ -853,7 +863,12 @@ def get_latest_rankings(limit: int = 25) -> dict:
                 sc.volume_score,
                 sc.dividend_score,
                 sc.range_score,
+                sc.roe_score,
+                sc.debt_score,
+                sc.fcf_margin_score,
+                sc.profit_margin_score,
                 sc.data_completeness,
+                sc.horizon,
                 sc.notes,
                 p.close_price,
                 p.volume
@@ -861,16 +876,15 @@ def get_latest_rankings(limit: int = 25) -> dict:
             JOIN stocks s        ON s.id = sc.stock_id
             LEFT JOIN prices_daily p
                 ON p.stock_id = sc.stock_id AND p.date = sc.date
-            WHERE sc.date = ?
+            WHERE sc.date = ? AND sc.horizon = ?
             ORDER BY sc.composite_score DESC
             """,
-            (latest_date,),
+            (latest_date, horizon),
         ).fetchall()
 
     finally:
         conn.close()
 
-    # Convert sqlite Row objects to plain dicts so the template can use them.
     all_rows = [dict(r) for r in rows]
 
     main = [r for r in all_rows
@@ -883,6 +897,7 @@ def get_latest_rankings(limit: int = 25) -> dict:
 
     return {
         "date":             latest_date,
+        "horizon":          horizon,
         "main":             main[:limit],
         "incomplete":       incomplete[:limit],
         "total_main":       len(main),

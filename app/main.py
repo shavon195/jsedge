@@ -31,21 +31,29 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 # Routes
 # ---------------------------------------------------------------------------
 @app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
-    """JSEdge landing page — defaults to the JSE tab with latest rankings."""
-    from app.ranking import get_latest_rankings
-    rankings = get_latest_rankings(limit=25)
+async def home(request: Request, horizon: str = ""):
+    """JSEdge landing page — JSE tab with horizon-aware rankings."""
+    from app.ranking import get_latest_rankings, HORIZON_WEIGHTS, DEFAULT_HORIZON
+
+    # Validate horizon param: must be one of the known horizons.
+    # Empty/invalid -> use the default (10_years).
+    if horizon not in HORIZON_WEIGHTS:
+        horizon = DEFAULT_HORIZON
+
+    rankings = get_latest_rankings(limit=25, horizon=horizon)
 
     return templates.TemplateResponse(
         "index.html",
         {
-            "request":     request,
-            "active_tab":  "jse",
-            "page_title":  "JSE — Stock Rankings",
-            "rankings":    rankings,
+            "request":         request,
+            "active_tab":      "jse",
+            "page_title":      "JSE — Stock Rankings",
+            "rankings":        rankings,
+            "horizon":         horizon,
+            "horizons_avail":  list(HORIZON_WEIGHTS.keys()),
         },
     )
-
+    
 @app.get("/news", response_class=HTMLResponse)
 async def news(request: Request):
     """News tab — Phase 2 placeholder."""
