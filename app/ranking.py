@@ -895,6 +895,17 @@ def get_latest_rankings(
                   if r["data_completeness"] is None
                   or r["data_completeness"] < MAIN_RANKING_THRESHOLD]
 
+    # Sort the incomplete tier so stocks with MORE data float to the top.
+    # Reasoning: a stock with 1 strong signal and 5 missing signals shouldn't
+    # outrank a stock with 4 mixed-but-real signals. We can't judge a stock
+    # we have no data on, so reward the rows we CAN trust most.
+    incomplete.sort(
+        key=lambda r: (
+            -(r["data_completeness"] or 0),       # completeness DESC
+            -(r["composite_score"] or 0),         # then score DESC
+        )
+    )
+
     return {
         "date":             latest_date,
         "horizon":          horizon,
