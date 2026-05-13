@@ -9,7 +9,7 @@ Then visit http://localhost:8000 in your browser.
 
 from pathlib import Path
 
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
@@ -26,6 +26,10 @@ app = FastAPI(
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
+# Make is_admin available globally to every template.
+from app.auth import is_admin
+from app.auth import require_admin
+templates.env.globals["is_admin"] = is_admin
 
 # ---------------------------------------------------------------------------
 # Routes
@@ -53,7 +57,7 @@ async def home(request: Request, horizon: str = ""):
             "horizons_avail":  list(HORIZON_WEIGHTS.keys()),
         },
     )
-    
+
 @app.get("/news", response_class=HTMLResponse)
 async def news(request: Request, flash: str = ""):
     """News tab — list scraped articles with their auto/manual tags."""
@@ -86,7 +90,8 @@ async def news(request: Request, flash: str = ""):
     )
 
 @app.post("/news/tags/{link_id}/remove")
-async def news_remove_tag(link_id: int):
+async def news_remove_tag(link_id: int,
+                          _admin: bool = Depends(require_admin)):
     """Soft-delete a stock tag from a news article."""
     from app.news.queries import remove_tag
     from app.database import get_connection
@@ -108,7 +113,9 @@ async def news_remove_tag(link_id: int):
     return RedirectResponse(url=f"/news?flash={flash}{anchor}", status_code=303)
 
 @app.post("/news/{article_id}/tags/add")
-async def news_add_tag(article_id: int, stock_id: int = Form(...)):
+async def news_add_tag(article_id: int,
+                       _admin: bool = Depends(require_admin),
+                       stock_id: int = Form(...)):
     """Add a manual stock tag to a news article."""
     from app.news.queries import add_manual_tag
     new_id = add_manual_tag(article_id, stock_id)
@@ -122,7 +129,8 @@ async def news_add_tag(article_id: int, stock_id: int = Form(...)):
     )
 
 @app.post("/news/{article_id}/summarize")
-async def news_summarize(article_id: int):
+async def news_summarize(article_id: int,
+                         _admin: bool = Depends(require_admin)):
     """Generate an AI summary for the given article via Gemini."""
     from app.news.summarizer import summarize_article
     result = summarize_article(article_id)
@@ -136,8 +144,9 @@ async def news_summarize(article_id: int):
         url=f"/news?flash={flash}#article-{article_id}",
         status_code=303,
     )
+
 @app.post("/news/refresh")
-async def news_refresh():
+async def news_refresh(_admin: bool = Depends(require_admin)):
     """Re-run the full news scrape pipeline (Gleaner + Observer)."""
     from app.news import scrape_gleaner_business, scrape_observer_business, save_articles_to_db
 
@@ -163,7 +172,7 @@ async def news_refresh():
         flash = f"error_Scrape+failed:+{err}"
 
     return RedirectResponse(url=f"/news?flash={flash}", status_code=303)
-    
+
 @app.get("/trading", response_class=HTMLResponse)
 async def trading(request: Request):
     """Trading tab — Phase 3 placeholder."""
@@ -182,12 +191,75 @@ async def health():
     """Health check endpoint — useful for deployment monitoring."""
     return {"status": "ok", "service": "jsedge", "version": "0.1.0"}
 
+# ---------------------------------------------------------------------------
+# Admin auth
+# ---------------------------------------------------------------------------
+@app.get("/admin/login", response_class=HTMLResponse)
+async def admin_login_form(request: Request, next: str = "", error: str = ""):
+    """Show the login form."""
+    return templates.TemplateResponse(
+        "admin_login.html",
+        {
+            "request":    request,
+            "page_title": "Admin Login",
+            "next":       next,
+            "error":      error,
+        },
+    )
+
+
+@app.post("/admin/login")
+async def admin_login_submit(
+    request: Request,
+    password: str = Form(...),
+    next: str    = Form(""),
+):
+    """Verify password; set session cookie on success."""
+    from app.auth import login_user, SESSION_COOKIE, SESSION_MAX_AGE
+
+    token = login_user(password)
+    if token is None:
+        # Bad password — re-render the form with an error.
+        return templates.TemplateResponse(
+            "admin_login.html",
+            {
+                "request":    request,
+                "page_title": "Admin Login",
+                "next":       next,
+                "error":      "Incorrect password.",
+            },
+            status_code=401,
+        )
+
+    # Redirect to the `next` URL if it's a safe local path, otherwise home.
+    target = next if next.startswith("/") else "/"
+    response = RedirectResponse(url=target, status_code=303)
+    response.set_cookie(
+        key      = SESSION_COOKIE,
+        value    = token,
+        max_age  = SESSION_MAX_AGE,
+        httponly = True,         # JS can't read the cookie (XSS protection)
+        samesite = "lax",        # CSRF mitigation
+        secure   = False,        # set True in production over HTTPS
+    )
+    return response
+
+
+@app.post("/admin/logout")
+async def admin_logout():
+    """Clear the session cookie and redirect home."""
+    from app.auth import SESSION_COOKIE
+
+    response = RedirectResponse(url="/", status_code=303)
+    response.delete_cookie(key=SESSION_COOKIE)
+    return response
 
 # ---------------------------------------------------------------------------
 # Fundamentals data entry
 # ---------------------------------------------------------------------------
 @app.get("/fundamentals", response_class=HTMLResponse)
-async def fundamentals_list(request: Request):
+async def fundamentals_list(request: Request,
+                            _admin: bool = Depends(require_admin)):
     """Show all stocks + how many fundamental rows each has."""
     from app.fundamentals import list_stocks_with_status
     stocks = list_stocks_with_status()
@@ -206,6 +278,7 @@ async def fundamentals_for_stock(
     request: Request,
     stock_id: int,
     flash: str = "",
+    _admin: bool = Depends(require_admin),
 ):
     """Show one stock's fundamentals + form to add a new period."""
     from app.fundamentals import get_stock_with_fundamentals, get_prev_next_stocks
@@ -247,6 +320,7 @@ async def fundamentals_for_stock(
 async def save_fundamental_period(
     request: Request,
     stock_id: int,
+    _admin: bool = Depends(require_admin),
     action: str = Form("save"),
     period_end_date: str = Form(...),
     period_type:     str = Form(...),
@@ -313,6 +387,7 @@ async def fundamental_view(
     request: Request,
     fundamental_id: int,
     flash: str = "",
+    _admin: bool = Depends(require_admin),
 ):
     """View one fundamentals row (read-only) with edit form."""
     from app.fundamentals import get_fundamental_by_id
@@ -352,6 +427,7 @@ async def fundamental_view(
 async def fundamental_update(
     request: Request,
     fundamental_id: int,
+    _admin: bool = Depends(require_admin),
     period_end_date: str = Form(...),
     period_type:     str = Form(...),
     eps:                 str = Form(""),
@@ -408,7 +484,8 @@ async def fundamental_update(
 
 
 @app.post("/fundamentals/period/{fundamental_id}/delete")
-async def fundamental_delete(request: Request, fundamental_id: int):
+async def fundamental_delete(request: Request, fundamental_id: int,
+                             _admin: bool = Depends(require_admin)):
     """Delete a fundamentals row, then redirect back to the stock page."""
     from app.fundamentals import get_fundamental_by_id, delete_fundamental
 

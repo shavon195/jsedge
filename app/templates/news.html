@@ -9,6 +9,7 @@
                 Jamaica Gleaner and Jamaica Observer business news, auto-tagged to JSE stocks.
             </p>
         </div>
+        {% if is_admin(request) %}
         <form method="post"
               action="/news/refresh"
               onsubmit="this.querySelector('button').disabled=true;
@@ -21,6 +22,7 @@
                 ↻ Refresh news
             </button>
         </form>
+        {% endif %}
     </div>
 
     {# Flash banner #}
@@ -89,7 +91,7 @@
                 </div>
             </div>
 
-            {# AI summary (if generated) or summarize button #}
+            {# AI summary (if generated) or summarize button (admin only) #}
             {% if art.ai_summary %}
             <div class="bg-slate-900/50 border-l-4 border-emerald-500 rounded-r-lg p-4 space-y-2">
                 <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-emerald-400">
@@ -99,7 +101,7 @@
                     {{ art.ai_summary }}
                 </p>
             </div>
-            {% else %}
+            {% elif is_admin(request) %}
             <form method="post" action="/news/{{ art.id }}/summarize" class="inline" onsubmit="this.querySelector('button').disabled=true;
                             this.querySelector('button').innerText='✦ Summarizing…';
                             this.querySelector('button').classList.add('opacity-60','cursor-wait');">
@@ -137,7 +139,8 @@
                     title="{{ tag.source }} · {{ tag.name }}{% if tag.matched_keyword %} · {{ tag.matched_keyword }}{% endif %}">
                     <span class="font-bold">{{ tag.symbol }}</span>
                     <span class="text-[10px] uppercase opacity-70">{{ tag.source }}</span>
-                    {# Remove button — soft-deletes the tag #}
+                    {# Remove button — admin only #}
+                    {% if is_admin(request) %}
                     <form method="post" action="/news/tags/{{ tag.link_id }}/remove" class="inline"
                         onsubmit="return confirm('Remove {{ tag.symbol }} tag from this article?');">
                         <button type="submit" class="ml-0.5 w-4 h-4 rounded-full flex items-center justify-center
@@ -146,6 +149,7 @@
                             ×
                         </button>
                     </form>
+                    {% endif %}
                 </span>
                 {% endfor %}
                 {% else %}
@@ -153,7 +157,8 @@
                 {% endif %}
             </div>
 
-            {# Add manual tag — collapsed by default #}
+            {# Add manual tag — admin only #}
+            {% if is_admin(request) %}
             <details class="group">
                 <summary class="text-xs text-slate-500 hover:text-slate-300 cursor-pointer
                                 inline-flex items-center gap-1 select-none
@@ -175,6 +180,7 @@
                     </button>
                 </form>
             </details>
+            {% endif %}
         </div>
         {% endfor %}
     </div>

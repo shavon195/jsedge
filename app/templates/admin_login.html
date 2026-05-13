@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-md mx-auto mt-12 space-y-6">
+    <div class="text-center">
+        <h1 class="text-3xl font-bold mb-2">Admin Login</h1>
+        <p class="text-slate-400 text-sm">
+            Enter the admin password to edit JSEdge data.
+        </p>
+    </div>
+
+    {% if error %}
+    <div class="bg-rose-900/40 border border-rose-700 text-rose-200
+                rounded-lg px-4 py-3 text-sm">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="post" action="/admin/login" class="space-y-4
+                bg-slate-800 border border-slate-700 rounded-lg p-6">
+        {% if next %}
+        <input type="hidden" name="next" value="{{ next }}">
+        {% endif %}
+
+        <div>
+            <label for="password"
+                   class="block text-xs uppercase tracking-wide text-slate-400 mb-1">
+                Password
+            </label>
+            <input type="password"
+                   id="password"
+                   name="password"
+                   required
+                   autofocus
+                   class="w-full bg-slate-900 border border-slate-700 rounded
+                          px-3 py-2 text-sm focus:outline-none
+                          focus:border-emerald-500">
+        </div>
+
+        <button type="submit"
+                class="w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500
+                       text-sm font-medium transition">
+            Log in
+        </button>
+    </form>
+
+    <p class="text-center text-xs text-slate-500">
+        Public data (rankings, news) is viewable without logging in.
+    </p>
+</div>
+{% endblock %}
