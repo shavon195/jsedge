@@ -9,7 +9,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
-from app.news_scraper import (
+from app.news import (
     fetch_business_page,
     parse_article_cards,
     article_relevance,

@@ -20,8 +20,7 @@ logging.basicConfig(
     format="%(levelname)s %(message)s",
 )
 
-from app.news_scraper import scrape_gleaner_business, save_articles_to_db
-
+from app.news import scrape_gleaner_business, save_articles_to_db
 
 def main() -> None:
     print("=" * 70)
