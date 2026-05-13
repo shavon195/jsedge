@@ -105,16 +105,23 @@ def save_articles_to_db(articles: list[dict]) -> dict:
                 updated += 1
 
             # 2. Count manual links we'll preserve, then delete auto+thematic.
+            #    NOTE: We only delete auto/thematic rows that have NOT been
+            #    soft-removed by the user (removed_at IS NULL). Soft-removed
+            #    rows stay, so we can check below and avoid re-inserting
+            #    links the user explicitly removed.
             manual_count = conn.execute(
                 "SELECT COUNT(*) AS n FROM news_stock_links "
-                "WHERE article_id = ? AND source = 'manual'",
+                "WHERE article_id = ? AND source = 'manual' "
+                "AND removed_at IS NULL",
                 (article_id,),
             ).fetchone()["n"]
             preserved_manual += manual_count
 
             conn.execute(
                 "DELETE FROM news_stock_links "
-                "WHERE article_id = ? AND source IN ('auto', 'thematic')",
+                "WHERE article_id = ? "
+                "AND source IN ('auto', 'thematic') "
+                "AND removed_at IS NULL",
                 (article_id,),
             )
 
@@ -136,10 +143,22 @@ def save_articles_to_db(articles: list[dict]) -> dict:
             symbol_to_id = {r["symbol"]: r["id"] for r in rows}
 
             # 3. Insert AUTO links (direct stock mentions).
+            #    Skip any (article, stock) pair the user soft-removed.
             for symbol in art.get("matched_stocks", []):
                 stock_id = symbol_to_id.get(symbol)
                 if stock_id is None:
                     continue  # symbol not in DB (shouldn't happen — we validated)
+
+                # Respect prior user removals.
+                soft_removed = conn.execute(
+                    "SELECT 1 FROM news_stock_links "
+                    "WHERE article_id = ? AND stock_id = ? "
+                    "AND removed_at IS NOT NULL",
+                    (article_id, stock_id),
+                ).fetchone()
+                if soft_removed:
+                    continue
+
                 # Find which keyword phrase triggered the match (for debug).
                 phrases = STOCK_KEYWORDS.get(symbol, [])
                 text = (
@@ -163,12 +182,24 @@ def save_articles_to_db(articles: list[dict]) -> dict:
                 links_auto += 1
 
             # 4. Insert THEMATIC links.
+            #    Skip any (article, stock) pair the user soft-removed.
             for theme in art.get("matched_themes", []):
                 kw_str = ", ".join(theme["matched_keywords"][:3])
                 for symbol in theme["affected_stocks"]:
                     stock_id = symbol_to_id.get(symbol)
                     if stock_id is None:
                         continue
+
+                    # Respect prior user removals.
+                    soft_removed = conn.execute(
+                        "SELECT 1 FROM news_stock_links "
+                        "WHERE article_id = ? AND stock_id = ? "
+                        "AND removed_at IS NOT NULL",
+                        (article_id, stock_id),
+                    ).fetchone()
+                    if soft_removed:
+                        continue
+
                     conn.execute(
                         """
                         INSERT OR IGNORE INTO news_stock_links
@@ -178,7 +209,6 @@ def save_articles_to_db(articles: list[dict]) -> dict:
                         (article_id, stock_id, f"theme={theme['name']} kw={kw_str}"),
                     )
                     links_thematic += 1
-
         conn.commit()
     finally:
         conn.close()

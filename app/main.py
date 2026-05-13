@@ -55,17 +55,53 @@ async def home(request: Request, horizon: str = ""):
     )
     
 @app.get("/news", response_class=HTMLResponse)
-async def news(request: Request):
-    """News tab — Phase 2 placeholder."""
+async def news(request: Request, flash: str = ""):
+    """News tab — list scraped articles with their auto/manual tags."""
+    from app.news.queries import list_recent_articles, list_all_stocks_for_dropdown
+
+    articles    = list_recent_articles(limit=50)
+    all_stocks  = list_all_stocks_for_dropdown()
+
+    # Parse flash query param.
+    flash_kind = None
+    flash_msg  = None
+    if flash.startswith("success_"):
+        flash_kind = "success"
+        flash_msg  = flash.replace("success_", "", 1)
+    elif flash.startswith("error_"):
+        flash_kind = "error"
+        flash_msg  = flash.replace("error_", "", 1)
+
     return templates.TemplateResponse(
-        "index.html",
+        "news.html",
         {
             "request":     request,
             "active_tab":  "news",
-            "page_title":  "News — Coming in Phase 2",
+            "page_title":  "News",
+            "articles":    articles,
+            "all_stocks":  all_stocks,
+            "flash_kind":  flash_kind,
+            "flash_msg":   flash_msg,
         },
     )
+@app.post("/news/tags/{link_id}/remove")
+async def news_remove_tag(link_id: int):
+    """Soft-delete a stock tag from a news article."""
+    from app.news.queries import remove_tag
+    ok = remove_tag(link_id)
+    flash = "success_Tag+removed." if ok else "error_Tag+not+found+or+already+removed."
+    return RedirectResponse(url=f"/news?flash={flash}", status_code=303)
 
+@app.post("/news/{article_id}/tags/add")
+async def news_add_tag(article_id: int, stock_id: int = Form(...)):
+    """Add a manual stock tag to a news article."""
+    from app.news.queries import add_manual_tag
+    new_id = add_manual_tag(article_id, stock_id)
+    if new_id is None:
+        flash = "error_That+tag+already+exists."
+    else:
+        flash = "success_Tag+added."
+    return RedirectResponse(url=f"/news?flash={flash}", status_code=303)
 
 @app.get("/trading", response_class=HTMLResponse)
 async def trading(request: Request):
