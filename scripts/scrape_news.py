@@ -20,31 +20,42 @@ logging.basicConfig(
     format="%(levelname)s %(message)s",
 )
 
-from app.news import scrape_gleaner_business, save_articles_to_db
+from app.news import (
+    scrape_gleaner_business,
+    scrape_observer_business,
+    save_articles_to_db,
+)
 
 def main() -> None:
     print("=" * 70)
     print("JSEdge — News scrape pipeline")
     print("=" * 70)
 
-    # Step 1: scrape + filter.
-    articles = scrape_gleaner_business()
+    # Step 1: scrape + filter from each source.
+    print("\n--- Source: Jamaica Gleaner ---")
+    gleaner_articles = scrape_gleaner_business()
+
+    print("\n--- Source: Jamaica Observer ---")
+    observer_articles = scrape_observer_business()
+
+    articles = gleaner_articles + observer_articles
 
     if not articles:
         print("\n⚠️  No relevant articles found this run.")
         return
 
-    print(f"\n📰 {len(articles)} relevant articles to save:")
+    print(f"\n📰 {len(articles)} relevant articles total to save "
+          f"({len(gleaner_articles)} Gleaner + {len(observer_articles)} Observer):")
     for a in articles:
         direct = ", ".join(a.get("matched_stocks", [])) or "—"
         themes = ", ".join(t["name"] for t in a.get("matched_themes", [])) or "—"
-        print(f"   • {a['headline'][:70]}")
+        source = a.get("source", "?")
+        print(f"   • [{source}] {a['headline'][:60]}")
         print(f"     direct={direct} | themes={themes}")
 
     # Step 2: save to DB.
     print("\n💾 Saving to database...")
     result = save_articles_to_db(articles)
-
     print()
     print("=" * 70)
     print("✅ Results:")
