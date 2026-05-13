@@ -136,7 +136,34 @@ async def news_summarize(article_id: int):
         url=f"/news?flash={flash}#article-{article_id}",
         status_code=303,
     )
+@app.post("/news/refresh")
+async def news_refresh():
+    """Re-run the full news scrape pipeline (Gleaner + Observer)."""
+    from app.news import scrape_gleaner_business, scrape_observer_business, save_articles_to_db
 
+    try:
+        gleaner_articles  = scrape_gleaner_business()
+        observer_articles = scrape_observer_business()
+        articles = gleaner_articles + observer_articles
+
+        if not articles:
+            flash = "error_No+articles+found+this+run."
+        else:
+            result = save_articles_to_db(articles)
+            ins  = result["articles_inserted"]
+            upd  = result["articles_updated"]
+            auto = result["links_auto"]
+            them = result["links_thematic"]
+            flash = (
+                f"success_Refreshed:+{ins}+new,+{upd}+updated."
+                f"+Links:+{auto}+auto,+{them}+thematic."
+            )
+    except Exception as e:
+        err = str(e)[:120].replace(" ", "+")
+        flash = f"error_Scrape+failed:+{err}"
+
+    return RedirectResponse(url=f"/news?flash={flash}", status_code=303)
+    
 @app.get("/trading", response_class=HTMLResponse)
 async def trading(request: Request):
     """Trading tab — Phase 3 placeholder."""
