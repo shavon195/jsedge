@@ -84,13 +84,28 @@ async def news(request: Request, flash: str = ""):
             "flash_msg":   flash_msg,
         },
     )
+
 @app.post("/news/tags/{link_id}/remove")
 async def news_remove_tag(link_id: int):
     """Soft-delete a stock tag from a news article."""
     from app.news.queries import remove_tag
+    from app.database import get_connection
+
+    # Look up the article id for the redirect anchor BEFORE removing.
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT article_id FROM news_stock_links WHERE id = ?",
+            (link_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+    article_id = row["article_id"] if row else None
+
     ok = remove_tag(link_id)
     flash = "success_Tag+removed." if ok else "error_Tag+not+found+or+already+removed."
-    return RedirectResponse(url=f"/news?flash={flash}", status_code=303)
+    anchor = f"#article-{article_id}" if article_id else ""
+    return RedirectResponse(url=f"/news?flash={flash}{anchor}", status_code=303)
 
 @app.post("/news/{article_id}/tags/add")
 async def news_add_tag(article_id: int, stock_id: int = Form(...)):
@@ -101,7 +116,26 @@ async def news_add_tag(article_id: int, stock_id: int = Form(...)):
         flash = "error_That+tag+already+exists."
     else:
         flash = "success_Tag+added."
-    return RedirectResponse(url=f"/news?flash={flash}", status_code=303)
+    return RedirectResponse(
+        url=f"/news?flash={flash}#article-{article_id}",
+        status_code=303,
+    )
+
+@app.post("/news/{article_id}/summarize")
+async def news_summarize(article_id: int):
+    """Generate an AI summary for the given article via Gemini."""
+    from app.news.summarizer import summarize_article
+    result = summarize_article(article_id)
+    if result["ok"]:
+        flash = "success_Summary+generated."
+    else:
+        # Keep the flash short but informative.
+        err = (result["error"] or "Unknown error.")[:120]
+        flash = "error_" + err.replace(" ", "+")
+    return RedirectResponse(
+        url=f"/news?flash={flash}#article-{article_id}",
+        status_code=303,
+    )
 
 @app.get("/trading", response_class=HTMLResponse)
 async def trading(request: Request):
