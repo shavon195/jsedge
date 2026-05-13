@@ -320,6 +320,7 @@ def scrape_gleaner_business() -> list[dict]:
         if rel["relevant"]:
             art["source"]         = "gleaner"
             art["matched_stocks"] = rel["matched_stocks"]
+            art["matched_themes"] = rel["matched_themes"]
             art["matched_macros"] = rel["matched_macros"]
             relevant.append(art)
         else:
