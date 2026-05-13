@@ -10,21 +10,21 @@ sys.path.insert(0, str(PROJECT_ROOT))
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
 from app.news import (
-    fetch_business_page,
-    parse_article_cards,
+    fetch_gleaner_business_page,
+    parse_gleaner_article_cards,
     article_relevance,
 )
 
 
 def main() -> None:
-    html = fetch_business_page()
+    html = fetch_gleaner_business_page()
     if html is None:
         print("❌ Fetch failed.")
         return
 
     print(f"\n✅ Fetched {len(html)} bytes of HTML\n")
 
-    articles = parse_article_cards(html)
+    articles = parse_gleaner_article_cards(html)
 
     print(f"📰 Parser extracted {len(articles)} article cards.\n")
     print("=" * 70)

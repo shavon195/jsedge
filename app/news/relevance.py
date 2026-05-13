@@ -17,9 +17,24 @@ Q3 = A: if a stock is already directly mentioned in the article, we
 suppress thematic links to THAT stock — direct beats thematic.
 """
 
+import re
+
 from app.news_keywords import STOCK_KEYWORDS
 from app.news_themes import THEMES
 
+
+def _phrase_in_text(phrase: str, text: str) -> bool:
+    """
+    Word-boundary match: phrase appears as a standalone token in text.
+
+    Both phrase and text should already be lowercased by the caller.
+    Uses regex \\b boundaries so 'statin' won't match inside 'stating',
+    'BIL' won't match inside 'billion', etc. Multi-word phrases like
+    'NCB Financial Group' still work since boundaries only apply to
+    the start and end of the whole phrase.
+    """
+    pattern = r"\b" + re.escape(phrase.lower()) + r"\b"
+    return re.search(pattern, text) is not None
 
 # Macro Jamaica keywords — keep articles mentioning these even if no
 # specific JSE stock is named. Captures general market/economy news.
@@ -69,7 +84,7 @@ def article_relevance(article: dict) -> dict:
     matched_stocks: list[str] = []
     for symbol, phrases in STOCK_KEYWORDS.items():
         for phrase in sorted(phrases, key=len, reverse=True):
-            if phrase.lower() in text:
+            if _phrase_in_text(phrase, text):
                 matched_stocks.append(symbol)
                 break
 
@@ -78,7 +93,7 @@ def article_relevance(article: dict) -> dict:
     for theme_name, theme_data in THEMES.items():
         matched_keywords = [
             kw for kw in theme_data["keywords"]
-            if kw.lower() in text
+            if _phrase_in_text(kw, text)
         ]
         if matched_keywords:
             # Q3 = A: drop affected stocks that were already directly matched.
@@ -93,7 +108,7 @@ def article_relevance(article: dict) -> dict:
             })
 
     # --- 3. Macro Jamaica keywords ---
-    matched_macros = [m for m in MACRO_KEYWORDS if m.lower() in text]
+    matched_macros = [m for m in MACRO_KEYWORDS if _phrase_in_text(m, text)]
 
     # Article is relevant if ANY of the three sources match.
     relevant = bool(matched_stocks or matched_themes or matched_macros)
