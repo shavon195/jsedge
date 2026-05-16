@@ -35,16 +35,26 @@ templates.env.globals["is_admin"] = is_admin
 # Routes
 # ---------------------------------------------------------------------------
 @app.get("/", response_class=HTMLResponse)
-async def home(request: Request, horizon: str = ""):
+async def home(request: Request, horizon: str = "", flash: str = ""):
     """JSEdge landing page — JSE tab with horizon-aware rankings."""
     from app.ranking import get_latest_rankings, HORIZON_WEIGHTS, DEFAULT_HORIZON
-
+    from app.watchlist import get_watched_symbols
     # Validate horizon param: must be one of the known horizons.
     # Empty/invalid -> use the default (10_years).
     if horizon not in HORIZON_WEIGHTS:
         horizon = DEFAULT_HORIZON
 
     rankings = get_latest_rankings(limit=25, horizon=horizon)
+    watched  = get_watched_symbols()  # set of symbols already on watchlist
+    # Parse flash query param (used after "Add to watchlist" actions).
+    flash_kind = None
+    flash_msg  = None
+    if flash.startswith("success_"):
+        flash_kind = "success"
+        flash_msg  = flash.replace("success_", "", 1)
+    elif flash.startswith("error_"):
+        flash_kind = "error"
+        flash_msg  = flash.replace("error_", "", 1)
 
     return templates.TemplateResponse(
         "index.html",
@@ -55,6 +65,9 @@ async def home(request: Request, horizon: str = ""):
             "rankings":        rankings,
             "horizon":         horizon,
             "horizons_avail":  list(HORIZON_WEIGHTS.keys()),
+            "watched":         watched,
+            "flash_kind":      flash_kind,
+            "flash_msg":       flash_msg,
         },
     )
 
@@ -253,6 +266,109 @@ async def admin_logout():
     response = RedirectResponse(url="/", status_code=303)
     response.delete_cookie(key=SESSION_COOKIE)
     return response
+
+# ---------------------------------------------------------------------------
+# Watchlist (admin-only)
+# ---------------------------------------------------------------------------
+@app.get("/watchlist", response_class=HTMLResponse)
+async def watchlist_view(request: Request,
+                         state: str = "active",
+                         flash: str = "",
+                         _admin: bool = Depends(require_admin)):
+    """Show the watchlist."""
+    from app.watchlist import list_watchlist, watchlist_counts
+    # Validate state param.
+    if state not in ("active", "inactive", "hit", "all"):
+        state = "active"
+
+    # 'hit' is a derived state — show actives, filtered to hit targets.
+    if state == "hit":
+        all_active = list_watchlist(state="active")
+        rows = [w for w in all_active if w["gap_state"] == "hit"]
+    else:
+        rows = list_watchlist(state=state)
+
+    counts = watchlist_counts()
+
+    # Parse flash query param.
+    flash_kind = None
+    flash_msg  = None
+    if flash.startswith("success_"):
+        flash_kind = "success"
+        flash_msg  = flash.replace("success_", "", 1)
+    elif flash.startswith("error_"):
+        flash_kind = "error"
+        flash_msg  = flash.replace("error_", "", 1)
+
+    return templates.TemplateResponse(
+        "watchlist.html",
+        {
+            "request":     request,
+            "active_tab":  "watchlist",
+            "page_title":  "Watchlist",
+            "rows":        rows,
+            "counts":      counts,
+            "state":       state,
+            "flash_kind":  flash_kind,
+            "flash_msg":   flash_msg,
+        },
+    )
+
+
+@app.post("/watchlist/add")
+async def watchlist_add(symbol: str = Form(...),
+                        _admin: bool = Depends(require_admin)):
+    """Add a stock to the watchlist (called from the JSE rankings page)."""
+    from app.watchlist import add_to_watchlist_by_symbol
+
+    new_id = add_to_watchlist_by_symbol(symbol)
+    if new_id is None:
+        # Could be "unknown symbol" or "already watched"; treat both as
+        # a soft error since the user-facing outcome is the same.
+        flash = f"error_Could+not+add+{symbol}+(already+watched+or+unknown)."
+    else:
+        flash = f"success_Added+{symbol}+to+watchlist."
+    return RedirectResponse(url=f"/?flash={flash}", status_code=303)
+
+@app.post("/watchlist/{watchlist_id}/update")
+async def watchlist_update(watchlist_id: int,
+                           _admin: bool = Depends(require_admin),
+                           limit_price: str = Form(""),
+                           notes: str = Form(""),
+                           is_active: str = Form("")):
+    """Update a watchlist row (target price / notes / pause)."""
+    from app.watchlist import update_watchlist
+
+    kwargs = {}
+    if limit_price.strip():
+        try:
+            kwargs["limit_price"] = float(limit_price)
+        except ValueError:
+            return RedirectResponse(
+                url="/watchlist?flash=error_Invalid+price.",
+                status_code=303,
+            )
+    if notes:
+        kwargs["notes"] = notes
+    if is_active in ("0", "1"):
+        kwargs["is_active"] = (is_active == "1")
+
+    update_watchlist(watchlist_id, **kwargs)
+    return RedirectResponse(
+        url="/watchlist?flash=success_Updated.",
+        status_code=303,
+    )
+
+
+@app.post("/watchlist/{watchlist_id}/remove")
+async def watchlist_remove(watchlist_id: int,
+                           _admin: bool = Depends(require_admin)):
+    """Delete a watchlist row."""
+    from app.watchlist import remove_from_watchlist
+
+    ok = remove_from_watchlist(watchlist_id)
+    flash = "success_Removed." if ok else "error_Not+found."
+    return RedirectResponse(url=f"/watchlist?flash={flash}", status_code=303)
 
 # ---------------------------------------------------------------------------
 # Fundamentals data entry

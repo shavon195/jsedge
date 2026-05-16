@@ -64,6 +64,18 @@
             </a>
 
             {% if is_admin(request) %}
+            <a href="/watchlist"
+               class="px-5 py-3 text-sm font-medium border-b-2 transition
+                      {% if active_tab == 'watchlist' %}
+                      border-emerald-400 text-emerald-400
+                      {% else %}
+                      border-transparent text-slate-400 hover:text-slate-200
+                      {% endif %}">
+                Watchlist
+            </a>
+            {% endif %}
+
+            {% if is_admin(request) %}
             <a href="/fundamentals"
                class="px-5 py-3 text-sm font-medium border-b-2 transition
                       {% if active_tab == 'fundamentals' %}

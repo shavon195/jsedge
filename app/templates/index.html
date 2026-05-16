@@ -35,10 +35,22 @@
             </label>
         </form>
 
+        {# Flash banner for watchlist add/remove actions #}
+        {% if flash_msg %}
+        <div class="rounded-lg px-4 py-3 text-sm mb-4
+                    {% if flash_kind == 'success' %}
+                    bg-emerald-900/40 border border-emerald-700 text-emerald-200
+                    {% else %}
+                    bg-rose-900/40 border border-rose-700 text-rose-200
+                    {% endif %}">
+            {{ flash_msg }}
+        </div>
+        {% endif %}
+
         {# Honest disclosure about what the score is built from #}
         {% if horizon in ['6_months', '1_year'] %}
         <div class="bg-slate-800/60 border border-slate-700 rounded-lg p-3 text-sm text-slate-300">
-            🔍 <strong>Short-term view.</strong> Mostly technical signals (price position, volume, dividend yield). Best for 6-12 month tactical decisions.
+            🔎 <strong>Short-term view.</strong> Mostly technical signals (price position, volume, dividend yield). Best for 6-12 month tactical decisions.
         </div>
         {% elif horizon == '2_years' %}
         <div class="bg-slate-800/60 border border-slate-700 rounded-lg p-3 text-sm text-slate-300">
@@ -72,6 +84,9 @@
                         <th class="text-right px-4 py-3">Price</th>
                         <th class="text-right px-4 py-3">Score</th>
                         <th class="text-right px-4 py-3 hidden sm:table-cell">Complete</th>
+                        {% if is_admin(request) %}
+                        <th class="text-center px-4 py-3 w-12">★</th>
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-700">
@@ -93,6 +108,22 @@
                         <td class="px-4 py-3 text-right text-slate-500 hidden sm:table-cell">
                             {{ "%.0f"|format(stock.data_completeness * 100) }}%
                         </td>
+                        {% if is_admin(request) %}
+                        <td class="px-4 py-3 text-center">
+                            {% if stock.symbol in watched %}
+                            <span class="text-emerald-400 text-lg" title="Already on your watchlist">★</span>
+                            {% else %}
+                            <form method="post" action="/watchlist/add" class="inline">
+                                <input type="hidden" name="symbol" value="{{ stock.symbol }}">
+                                <button type="submit"
+                                        class="text-slate-600 hover:text-emerald-400 transition text-lg"
+                                        title="Add to watchlist">
+                                    ☆
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                        {% endif %}
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -123,6 +154,9 @@
                         <th class="text-right px-4 py-3">Price</th>
                         <th class="text-right px-4 py-3">Score</th>
                         <th class="text-left px-4 py-3 hidden lg:table-cell">Missing</th>
+                        {% if is_admin(request) %}
+                        <th class="text-center px-4 py-3 w-12">★</th>
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-700">
@@ -143,6 +177,22 @@
                         <td class="px-4 py-3 text-xs text-slate-500 hidden lg:table-cell">
                             {{ stock.notes or "—" }}
                         </td>
+                        {% if is_admin(request) %}
+                        <td class="px-4 py-3 text-center">
+                            {% if stock.symbol in watched %}
+                            <span class="text-emerald-400 text-lg" title="Already on your watchlist">★</span>
+                            {% else %}
+                            <form method="post" action="/watchlist/add" class="inline">
+                                <input type="hidden" name="symbol" value="{{ stock.symbol }}">
+                                <button type="submit"
+                                        class="text-slate-600 hover:text-emerald-400 transition text-lg"
+                                        title="Add to watchlist">
+                                    ☆
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                        {% endif %}
                     </tr>
                     {% endfor %}
                 </tbody>

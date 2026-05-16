@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    {# Header #}
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+            <h1 class="text-3xl font-bold mb-2">Watchlist</h1>
+            <p class="text-slate-400">
+                Stocks you're tracking. Set a target price; you'll be alerted when it's hit.
+            </p>
+        </div>
+
+        {# State filter toggle #}
+        <div class="inline-flex bg-slate-800 border border-slate-700 rounded-full p-1">
+            <a href="/watchlist?state=active"
+               class="px-4 py-1.5 text-xs rounded-full transition
+                      {% if state == 'active' %}
+                      bg-emerald-500 text-slate-900 font-medium
+                      {% else %}
+                      text-slate-400 hover:text-slate-200
+                      {% endif %}">
+                Active ({{ counts.active }})
+            </a>
+            <a href="/watchlist?state=hit"
+               class="px-4 py-1.5 text-xs rounded-full transition
+                      {% if state == 'hit' %}
+                      bg-emerald-500 text-slate-900 font-medium
+                      {% else %}
+                      text-slate-400 hover:text-slate-200
+                      {% endif %}">
+                Hit targets ({{ counts.hit }})
+            </a>
+            <a href="/watchlist?state=inactive"
+               class="px-4 py-1.5 text-xs rounded-full transition
+                      {% if state == 'inactive' %}
+                      bg-emerald-500 text-slate-900 font-medium
+                      {% else %}
+                      text-slate-400 hover:text-slate-200
+                      {% endif %}">
+                Inactive ({{ counts.inactive }})
+            </a>
+        </div>
+    </div>
+
+    {# Flash banner #}
+    {% if flash_msg %}
+    <div class="rounded-lg px-4 py-3 text-sm
+                {% if flash_kind == 'success' %}
+                bg-emerald-900/40 border border-emerald-700 text-emerald-200
+                {% else %}
+                bg-rose-900/40 border border-rose-700 text-rose-200
+                {% endif %}">
+        {{ flash_msg }}
+    </div>
+    {% endif %}
+
+    {# Stat cards #}
+    <div class="grid grid-cols-3 gap-3">
+        <div class="bg-slate-800 border border-slate-700 rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-emerald-400">{{ counts.active }}</div>
+            <div class="text-xs uppercase tracking-wide text-slate-400 mt-1">Tracking</div>
+        </div>
+        <div class="bg-slate-800 border border-slate-700 rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-amber-400">
+                {{ rows | selectattr('gap_state', 'equalto', 'near') | list | length }}
+            </div>
+            <div class="text-xs uppercase tracking-wide text-slate-400 mt-1">Near target (≤5%)</div>
+        </div>
+        <div class="bg-slate-800 border border-slate-700 rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-emerald-400">{{ counts.hit }}</div>
+            <div class="text-xs uppercase tracking-wide text-slate-400 mt-1">Target hit</div>
+        </div>
+    </div>
+
+    {# Empty state #}
+    {% if not rows %}
+    <div class="bg-slate-800 border border-slate-700 rounded-lg p-10 text-center space-y-2">
+        <p class="text-slate-400">
+            {% if state == 'active' %}
+            Your watchlist is empty.
+            {% elif state == 'hit' %}
+            No targets hit yet.
+            {% else %}
+            No inactive watches.
+            {% endif %}
+        </p>
+        <p class="text-xs text-slate-500">
+            Go to the <a href="/" class="text-emerald-400 hover:text-emerald-300 underline">JSE rankings page</a>
+            and click ★ on any row to start tracking a stock.
+        </p>
+    </div>
+    {% else %}
+
+    {# Watchlist rows #}
+    <div class="space-y-2">
+        {% for w in rows %}
+        <div class="bg-slate-800 border rounded-lg p-4
+                    {% if w.gap_state == 'hit' %}
+                    border-emerald-500 bg-emerald-900/10
+                    {% elif w.gap_state == 'near' %}
+                    border-amber-500/60
+                    {% else %}
+                    border-slate-700
+                    {% endif %}">
+            <div class="grid grid-cols-12 gap-3 items-center">
+                {# Symbol + name #}
+                <div class="col-span-3">
+                    <div class="font-mono font-bold text-emerald-400">{{ w.symbol }}</div>
+                    <div class="text-xs text-slate-400 truncate">{{ w.name }}</div>
+                </div>
+
+                {# Notes / meta #}
+                <div class="col-span-3 text-xs text-slate-500 font-mono">
+                    Added {{ w.added_at[:10] }}
+                    {% if w.notes %}
+                    <div class="text-slate-400 italic truncate" title="{{ w.notes }}">"{{ w.notes }}"</div>
+                    {% endif %}
+                </div>
+
+                {# Current price #}
+                <div class="col-span-2 text-right">
+                    <div class="text-xs uppercase tracking-wide text-slate-500">Current</div>
+                    <div class="font-mono">
+                        {% if w.current_price is not none %}
+                        ${{ "%.2f"|format(w.current_price) }}
+                        {% else %}
+                        <span class="text-slate-600">—</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {# Target price (editable inline) #}
+                <div class="col-span-2 text-right">
+                    <div class="text-xs uppercase tracking-wide text-slate-500">Target</div>
+                    <form method="post" action="/watchlist/{{ w.id }}/update" class="inline">
+                        <input type="number"
+                               name="limit_price"
+                               value="{{ '%.2f'|format(w.limit_price) if w.limit_price is not none else '' }}"
+                               step="0.01"
+                               min="0"
+                               placeholder="—"
+                               onchange="this.form.submit()"
+                               class="bg-slate-900 border border-slate-700 rounded
+                                      text-right text-sm px-2 py-1 font-mono w-24
+                                      focus:outline-none focus:border-emerald-500">
+                    </form>
+                </div>
+
+                {# Gap % #}
+                <div class="col-span-1 text-right">
+                    {% if w.gap_state == 'hit' %}
+                    <span class="text-emerald-400 font-mono font-bold">HIT</span>
+                    {% elif w.gap_pct is not none %}
+                    <span class="font-mono
+                                 {% if w.gap_state == 'near' %}text-amber-400
+                                 {% else %}text-slate-500{% endif %}">
+                        {{ "%+.1f"|format(w.gap_pct) }}%
+                    </span>
+                    {% else %}
+                    <span class="text-slate-600">—</span>
+                    {% endif %}
+                </div>
+
+                {# Remove button #}
+                <div class="col-span-1 text-right">
+                    <form method="post"
+                          action="/watchlist/{{ w.id }}/remove"
+                          class="inline"
+                          onsubmit="return confirm('Remove {{ w.symbol }} from your watchlist?');">
+                        <button type="submit"
+                                class="text-slate-500 hover:text-rose-400 transition text-lg leading-none"
+                                title="Remove from watchlist">
+                            ×
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            {# Hit-target indicator #}
+            {% if w.gap_state == 'hit' %}
+            <div class="mt-2 text-xs text-emerald-300">
+                ★ Target reached. Alert logic ships in the next session.
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {# Helper hint at bottom #}
+    {% if rows %}
+    <div class="text-center text-xs text-slate-500 pt-4">
+        Find more stocks on the <a href="/" class="text-emerald-400 hover:text-emerald-300 underline">JSE rankings page</a>
+        — click ★ on any row to track it here.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
