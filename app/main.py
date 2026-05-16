@@ -276,7 +276,8 @@ async def watchlist_view(request: Request,
                          flash: str = "",
                          _admin: bool = Depends(require_admin)):
     """Show the watchlist."""
-    from app.watchlist import list_watchlist, watchlist_counts
+    from app.watchlist import list_watchlist, watchlist_counts, get_price_context
+
     # Validate state param.
     if state not in ("active", "inactive", "hit", "all"):
         state = "active"
@@ -287,6 +288,10 @@ async def watchlist_view(request: Request,
         rows = [w for w in all_active if w["gap_state"] == "hit"]
     else:
         rows = list_watchlist(state=state)
+
+    # Enrich each row with price context for the expand panel.
+    for w in rows:
+        w["context"] = get_price_context(w["stock_id"])
 
     counts = watchlist_counts()
 

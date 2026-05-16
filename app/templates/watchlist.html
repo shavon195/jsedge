@@ -92,10 +92,10 @@
     </div>
     {% else %}
 
-    {# Watchlist rows #}
+    {# Watchlist rows — each row is collapsible #}
     <div class="space-y-2">
         {% for w in rows %}
-        <div class="bg-slate-800 border rounded-lg p-4
+        <details class="bg-slate-800 border rounded-lg
                     {% if w.gap_state == 'hit' %}
                     border-emerald-500 bg-emerald-900/10
                     {% elif w.gap_state == 'near' %}
@@ -103,87 +103,153 @@
                     {% else %}
                     border-slate-700
                     {% endif %}">
-            <div class="grid grid-cols-12 gap-3 items-center">
-                {# Symbol + name #}
-                <div class="col-span-3">
-                    <div class="font-mono font-bold text-emerald-400">{{ w.symbol }}</div>
-                    <div class="text-xs text-slate-400 truncate">{{ w.name }}</div>
-                </div>
+            {# Summary row (always visible — same compact look as before) #}
+            <summary class="p-4 cursor-pointer list-none marker:content-none
+                            hover:bg-slate-700/30 transition rounded-lg">
+                <div class="grid grid-cols-12 gap-3 items-center">
+                    {# Symbol + name #}
+                    <div class="col-span-3">
+                        <div class="font-mono font-bold text-emerald-400">{{ w.symbol }}</div>
+                        <div class="text-xs text-slate-400 truncate">{{ w.name }}</div>
+                    </div>
 
-                {# Notes / meta #}
-                <div class="col-span-3 text-xs text-slate-500 font-mono">
-                    Added {{ w.added_at[:10] }}
-                    {% if w.notes %}
-                    <div class="text-slate-400 italic truncate" title="{{ w.notes }}">"{{ w.notes }}"</div>
-                    {% endif %}
-                </div>
+                    {# Notes / meta #}
+                    <div class="col-span-3 text-xs text-slate-500 font-mono">
+                        Added {{ w.added_at[:10] }}
+                        {% if w.notes %}
+                        <div class="text-slate-400 italic truncate" title="{{ w.notes }}">"{{ w.notes }}"</div>
+                        {% endif %}
+                    </div>
 
-                {# Current price #}
-                <div class="col-span-2 text-right">
-                    <div class="text-xs uppercase tracking-wide text-slate-500">Current</div>
-                    <div class="font-mono">
-                        {% if w.current_price is not none %}
-                        ${{ "%.2f"|format(w.current_price) }}
+                    {# Current price #}
+                    <div class="col-span-2 text-right">
+                        <div class="text-xs uppercase tracking-wide text-slate-500">Current</div>
+                        <div class="font-mono">
+                            {% if w.current_price is not none %}
+                            ${{ "%.2f"|format(w.current_price) }}
+                            {% else %}
+                            <span class="text-slate-600">—</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {# Target price (editable inline) #}
+                    <div class="col-span-2 text-right">
+                        <div class="text-xs uppercase tracking-wide text-slate-500">Target</div>
+                        <form method="post" action="/watchlist/{{ w.id }}/update" class="inline"
+                              onclick="event.stopPropagation()">
+                            <input type="number"
+                                   name="limit_price"
+                                   value="{{ '%.2f'|format(w.limit_price) if w.limit_price is not none else '' }}"
+                                   step="0.01"
+                                   min="0"
+                                   placeholder="—"
+                                   onchange="this.form.submit()"
+                                   onclick="event.stopPropagation()"
+                                   class="bg-slate-900 border border-slate-700 rounded
+                                          text-right text-sm px-2 py-1 font-mono w-24
+                                          focus:outline-none focus:border-emerald-500">
+                        </form>
+                    </div>
+
+                    {# Gap % + chevron + remove #}
+                    <div class="col-span-2 flex items-center justify-end gap-2">
+                        {% if w.gap_state == 'hit' %}
+                        <span class="text-emerald-400 font-mono font-bold">HIT</span>
+                        {% elif w.gap_pct is not none %}
+                        <span class="font-mono text-sm
+                                     {% if w.gap_state == 'near' %}text-amber-400
+                                     {% else %}text-slate-500{% endif %}">
+                            {{ "%+.1f"|format(w.gap_pct) }}%
+                        </span>
                         {% else %}
                         <span class="text-slate-600">—</span>
                         {% endif %}
+
+                        {# Chevron icon — rotates when open via CSS #}
+                        <svg class="w-4 h-4 text-slate-500 transition-transform duration-200
+                                    chevron-icon" fill="none" stroke="currentColor"
+                             viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                  stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+
+                        {# Remove button #}
+                        <form method="post"
+                              action="/watchlist/{{ w.id }}/remove"
+                              class="inline"
+                              onclick="event.stopPropagation()"
+                              onsubmit="return confirm('Remove {{ w.symbol }} from your watchlist?');">
+                            <button type="submit"
+                                    onclick="event.stopPropagation()"
+                                    class="text-slate-500 hover:text-rose-400 transition text-lg leading-none"
+                                    title="Remove from watchlist">
+                                ×
+                            </button>
+                        </form>
                     </div>
                 </div>
 
-                {# Target price (editable inline) #}
-                <div class="col-span-2 text-right">
-                    <div class="text-xs uppercase tracking-wide text-slate-500">Target</div>
-                    <form method="post" action="/watchlist/{{ w.id }}/update" class="inline">
-                        <input type="number"
-                               name="limit_price"
-                               value="{{ '%.2f'|format(w.limit_price) if w.limit_price is not none else '' }}"
-                               step="0.01"
-                               min="0"
-                               placeholder="—"
-                               onchange="this.form.submit()"
-                               class="bg-slate-900 border border-slate-700 rounded
-                                      text-right text-sm px-2 py-1 font-mono w-24
-                                      focus:outline-none focus:border-emerald-500">
-                    </form>
+                {# Hit-target indicator #}
+                {% if w.gap_state == 'hit' %}
+                <div class="mt-2 text-xs text-emerald-300">
+                    ★ Target reached.
+                </div>
+                {% endif %}
+            </summary>
+
+            {# Expanded panel — price context #}
+            <div class="border-t border-slate-700 p-4 bg-slate-900/40 space-y-3">
+                <div class="text-xs uppercase tracking-wide text-slate-500">
+                    Price context
                 </div>
 
-                {# Gap % #}
-                <div class="col-span-1 text-right">
-                    {% if w.gap_state == 'hit' %}
-                    <span class="text-emerald-400 font-mono font-bold">HIT</span>
-                    {% elif w.gap_pct is not none %}
-                    <span class="font-mono
-                                 {% if w.gap_state == 'near' %}text-amber-400
-                                 {% else %}text-slate-500{% endif %}">
-                        {{ "%+.1f"|format(w.gap_pct) }}%
-                    </span>
-                    {% else %}
-                    <span class="text-slate-600">—</span>
+                {% if w.context.current is none %}
+                <p class="text-sm text-slate-500 italic">
+                    No price history available yet for {{ w.symbol }}.
+                </p>
+                {% else %}
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                    <div>
+                        <div class="text-xs text-slate-500 uppercase tracking-wide">1-year range</div>
+                        <div class="font-mono">
+                            ${{ "%.2f"|format(w.context.year_low) }}
+                            <span class="text-slate-500">—</span>
+                            ${{ "%.2f"|format(w.context.year_high) }}
+                        </div>
+                    </div>
+                    {% if w.context.three_mo_low is not none %}
+                    <div>
+                        <div class="text-xs text-slate-500 uppercase tracking-wide">3-month low</div>
+                        <div class="font-mono">${{ "%.2f"|format(w.context.three_mo_low) }}</div>
+                    </div>
                     {% endif %}
                 </div>
 
-                {# Remove button #}
-                <div class="col-span-1 text-right">
-                    <form method="post"
-                          action="/watchlist/{{ w.id }}/remove"
-                          class="inline"
-                          onsubmit="return confirm('Remove {{ w.symbol }} from your watchlist?');">
-                        <button type="submit"
-                                class="text-slate-500 hover:text-rose-400 transition text-lg leading-none"
-                                title="Remove from watchlist">
-                            ×
-                        </button>
-                    </form>
+                {# Quick-target buttons #}
+                <div>
+                    <div class="text-xs text-slate-500 uppercase tracking-wide mb-2">Quick targets</div>
+                    <div class="flex flex-wrap gap-2">
+                        {% for q in w.context.quick_targets %}
+                        <form method="post" action="/watchlist/{{ w.id }}/update" class="inline">
+                            <input type="hidden" name="limit_price" value="{{ q.price }}">
+                            <button type="submit"
+                                    class="px-3 py-1 rounded border border-slate-600
+                                           hover:border-emerald-500 hover:text-emerald-300
+                                           transition text-xs font-mono">
+                                {{ q.label }}: ${{ "%.2f"|format(q.price) }}
+                            </button>
+                        </form>
+                        {% endfor %}
+                    </div>
                 </div>
-            </div>
 
-            {# Hit-target indicator #}
-            {% if w.gap_state == 'hit' %}
-            <div class="mt-2 text-xs text-emerald-300">
-                ★ Target reached. Alert logic ships in the next session.
+                <p class="text-xs text-slate-500 italic pt-1">
+                    Reference points only — your judgment matters more than formulas.
+                </p>
+                {% endif %}
             </div>
-            {% endif %}
-        </div>
+        </details>
         {% endfor %}
     </div>
     {% endif %}
@@ -196,4 +262,13 @@
     </div>
     {% endif %}
 </div>
+
+<style>
+    details[open] .chevron-icon {
+        transform: rotate(180deg);
+    }
+    /* Hide the default disclosure triangle in all browsers */
+    summary::-webkit-details-marker { display: none; }
+    summary::marker { content: ""; }
+</style>
 {% endblock %}

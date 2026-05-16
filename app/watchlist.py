@@ -131,6 +131,79 @@ def get_watched_stock_ids() -> set[int]:
     finally:
         conn.close()
 
+def get_price_context(stock_id: int) -> dict:
+    """
+    Return price context for the 'expand' section on the watchlist row.
+
+    Pulls from prices_daily over the last year and computes:
+        - current price
+        - 1-year low / high
+        - 3-month low
+        - quick-target reference prices (-10%, -20%, -30% from current)
+
+    Any of these may be None if there isn't enough price history.
+    """
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            """
+            SELECT date, close_price
+              FROM prices_daily
+             WHERE stock_id = ?
+               AND date >= date('now', '-365 days')
+             ORDER BY date DESC
+            """,
+            (stock_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    if not rows:
+        return {
+            "current":   None,
+            "year_low":  None,
+            "year_high": None,
+            "three_mo_low":  None,
+            "quick_targets": [],
+        }
+
+    closes = [r["close_price"] for r in rows if r["close_price"] is not None]
+    if not closes:
+        return {
+            "current":   None,
+            "year_low":  None,
+            "year_high": None,
+            "three_mo_low":  None,
+            "quick_targets": [],
+        }
+
+    current  = closes[0]                # most recent
+    year_low  = min(closes)
+    year_high = max(closes)
+
+    # 3-month low: filter rows in last 90 days.
+    # Dates are stored as TEXT 'YYYY-MM-DD' so string compare works.
+    from datetime import datetime, timedelta
+    cutoff = (datetime.utcnow() - timedelta(days=90)).strftime("%Y-%m-%d")
+    recent = [r["close_price"] for r in rows
+              if r["date"] >= cutoff and r["close_price"] is not None]
+    three_mo_low = min(recent) if recent else None
+
+    # Quick-target reference prices.
+    quick_targets = [
+        {"label": "-10%", "price": round(current * 0.90, 2)},
+        {"label": "-20%", "price": round(current * 0.80, 2)},
+        {"label": "-30%", "price": round(current * 0.70, 2)},
+    ]
+
+    return {
+        "current":       current,
+        "year_low":      year_low,
+        "year_high":     year_high,
+        "three_mo_low":  three_mo_low,
+        "quick_targets": quick_targets,
+    }
+
 def get_watched_symbols() -> set[str]:
     """Return the set of stock symbols currently on the watchlist.
 
