@@ -144,24 +144,40 @@ def update_stocks(instruments: list[dict]) -> dict:
         conn.close()
 
 
-def main() -> None:
+def refresh_instrument_codes(verbose: bool = True) -> dict:
+    """
+    Fetch the price-history page and update stocks.instrument_code.
+
+    Returns the result dict from update_stocks(). Suitable for calling
+    from other scripts (like the daily scraper) as a discovery step.
+    """
     html = fetch_page()
     instruments = parse_instruments(html)
 
-    print()
-    print(f"Parsed {len(instruments)} instruments total.")
-    main_count   = sum(1 for i in instruments if i["market"] == "Main Market")
-    junior_count = sum(1 for i in instruments if i["market"] == "Junior Market")
-    print(f"  Main Market:   {main_count}")
-    print(f"  Junior Market: {junior_count}")
-    print(f"  Other:         {len(instruments) - main_count - junior_count}")
+    if verbose:
+        print()
+        print(f"Parsed {len(instruments)} instruments total.")
+        main_count   = sum(1 for i in instruments if i["market"] == "Main Market")
+        junior_count = sum(1 for i in instruments if i["market"] == "Junior Market")
+        print(f"  Main Market:   {main_count}")
+        print(f"  Junior Market: {junior_count}")
+        print(f"  Other:         {len(instruments) - main_count - junior_count}")
+        print()
+        print("Updating stocks table...")
 
-    print()
-    print("Updating stocks table...")
     result = update_stocks(instruments)
-    print(f"  Matched (saved code): {result['matched']}")
-    print(f"  Skipped (non-equity market): {result['skipped_market']}")
-    print(f"  Skipped (symbol not in our DB): {result['skipped_no_stock']}")
+
+    if verbose:
+        print(f"  Matched (saved code): {result['matched']}")
+        print(f"  Skipped (non-equity market): {result['skipped_market']}")
+        print(f"  Skipped (symbol not in our DB): {result['skipped_no_stock']}")
+
+    return result
+
+
+def main() -> None:
+    """CLI entry point. Run as a standalone script."""
+    refresh_instrument_codes(verbose=True)
 
     # Show a few examples of what we just saved.
     print()

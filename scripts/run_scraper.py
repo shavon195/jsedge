@@ -83,6 +83,20 @@ def main() -> None:
     print(f"Mode: {'OFFLINE (sample files)' if args.offline else 'LIVE'}")
     print("=" * 60)
 
+    # Step 0: refresh instrument codes so any new JSE listings are
+    # discovered before today's price scrape runs. Skip in offline mode
+    # since we don't want to hit the live JSE site during tests.
+    if not args.offline:
+        print()
+        print("--- Discovering new instruments ---")
+        try:
+            from scripts.fetch_instrument_codes import refresh_instrument_codes
+            refresh_instrument_codes(verbose=True)
+        except Exception as e:
+            # Don't fail the whole scrape if discovery breaks - just warn.
+            print(f"  WARNING: instrument discovery failed: {e}")
+            print(f"  (Continuing with existing stocks.)")
+
     main_result   = run_market("main",   args.date, args.offline)
     junior_result = run_market("junior", args.date, args.offline)
 
