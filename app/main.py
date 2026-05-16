@@ -404,6 +404,92 @@ async def alerts_view(request: Request,
     )
 
 # ---------------------------------------------------------------------------
+# Settings (admin-only)
+# ---------------------------------------------------------------------------
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_view(request: Request,
+                        flash: str = "",
+                        edit: str = "",
+                        _admin: bool = Depends(require_admin)):
+    """Show the settings page with all credentials + test buttons."""
+    from app.settings import list_settings
+
+    settings = list_settings()
+
+    # Parse flash query param.
+    flash_kind = None
+    flash_msg  = None
+    if flash.startswith("success_"):
+        flash_kind = "success"
+        flash_msg  = flash.replace("success_", "", 1)
+    elif flash.startswith("error_"):
+        flash_kind = "error"
+        flash_msg  = flash.replace("error_", "", 1)
+
+    return templates.TemplateResponse(
+        "settings.html",
+        {
+            "request":     request,
+            "active_tab":  "settings",
+            "page_title":  "Settings",
+            "settings":    settings,
+            "edit_key":    edit,
+            "flash_kind":  flash_kind,
+            "flash_msg":   flash_msg,
+        },
+    )
+
+
+@app.post("/settings/save")
+async def settings_save(key: str = Form(...),
+                        value: str = Form(""),
+                        _admin: bool = Depends(require_admin)):
+    """Save (upsert) one setting value."""
+    from app.settings import save_setting, EDITABLE_KEYS
+
+    # Whitelist check — only allow saving keys we expose on the UI.
+    valid_keys = {k for k, _, _ in EDITABLE_KEYS}
+    if key not in valid_keys:
+        return RedirectResponse(
+            url=f"/settings?flash=error_Unknown+setting+{key}.",
+            status_code=303,
+        )
+
+    save_setting(key, value.strip())
+    return RedirectResponse(
+        url=f"/settings?flash=success_Saved+{key}.",
+        status_code=303,
+    )
+
+
+@app.post("/settings/test-email")
+async def settings_test_email(_admin: bool = Depends(require_admin)):
+    """Send a test email to confirm the channel works."""
+    from app.alerts.email import send_test_email
+
+    result = send_test_email()
+    if result["ok"]:
+        flash = f"success_Test+email+sent+(id+{result.get('id', 'unknown')[:8]}).+Check+your+inbox."
+    else:
+        err = (result.get("error") or "Unknown")[:100].replace(" ", "+")
+        flash = f"error_Email+failed:+{err}"
+    return RedirectResponse(url=f"/settings?flash={flash}", status_code=303)
+
+
+@app.post("/settings/test-whatsapp")
+async def settings_test_whatsapp(_admin: bool = Depends(require_admin)):
+    """Send a test WhatsApp to confirm the channel works."""
+    from app.alerts.whatsapp import send_test_whatsapp
+
+    result = send_test_whatsapp()
+    if result["ok"]:
+        flash = f"success_Test+WhatsApp+sent+(sid+{result.get('sid', 'unknown')[:8]}).+Check+your+phone."
+    else:
+        err = (result.get("error") or "Unknown")[:100].replace(" ", "+")
+        flash = f"error_WhatsApp+failed:+{err}"
+    return RedirectResponse(url=f"/settings?flash={flash}", status_code=303)
+
+# ---------------------------------------------------------------------------
 # Fundamentals data entry
 # ---------------------------------------------------------------------------
 @app.get("/fundamentals", response_class=HTMLResponse)

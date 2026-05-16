@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6 max-w-4xl">
+    {# Header #}
+    <div>
+        <h1 class="text-3xl font-bold mb-2">Settings</h1>
+        <p class="text-slate-400">
+            Manage credentials and test alert channels. All sensitive values are masked by default.
+        </p>
+    </div>
+
+    {# Flash banner #}
+    {% if flash_msg %}
+    <div class="rounded-lg px-4 py-3 text-sm
+                {% if flash_kind == 'success' %}
+                bg-emerald-900/40 border border-emerald-700 text-emerald-200
+                {% else %}
+                bg-rose-900/40 border border-rose-700 text-rose-200
+                {% endif %}">
+        {{ flash_msg }}
+    </div>
+    {% endif %}
+
+    {# Test buttons — quick way to verify channels are still working #}
+    <div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
+        <h2 class="text-lg font-semibold mb-1">Test alert channels</h2>
+        <p class="text-xs text-slate-400 mb-4">
+            Sends a one-off "hello" message via each channel using your current credentials.
+        </p>
+        <div class="flex gap-3 flex-wrap">
+            <form method="post" action="/settings/test-email" class="inline">
+                <button type="submit"
+                        class="px-4 py-2 rounded-lg bg-cyan-700 hover:bg-cyan-600
+                               text-sm font-medium transition">
+                    ✉️ Send test email
+                </button>
+            </form>
+            <form method="post" action="/settings/test-whatsapp" class="inline">
+                <button type="submit"
+                        class="px-4 py-2 rounded-lg bg-amber-700 hover:bg-amber-600
+                               text-sm font-medium transition">
+                    💬 Send test WhatsApp
+                </button>
+            </form>
+        </div>
+    </div>
+
+    {# Credentials list #}
+    <div class="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-700">
+            <h2 class="text-lg font-semibold">Credentials</h2>
+            <p class="text-xs text-slate-400 mt-1">
+                Click <strong>Update</strong> to change a value. Sensitive values are masked.
+            </p>
+        </div>
+
+        <div class="divide-y divide-slate-700">
+            {% for s in settings %}
+            <div class="px-5 py-4">
+                <div class="flex items-start justify-between gap-4 flex-wrap">
+                    {# Left side: label, hint, value #}
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            {# Status dot #}
+                            {% if s.is_set %}
+                            <span class="inline-block w-2 h-2 rounded-full bg-emerald-400"
+                                  title="Set"></span>
+                            {% else %}
+                            <span class="inline-block w-2 h-2 rounded-full bg-slate-600"
+                                  title="Empty"></span>
+                            {% endif %}
+                            <span class="font-medium">{{ s.label }}</span>
+                        </div>
+
+                        <p class="text-xs text-slate-500 mb-2">{{ s.hint }}</p>
+
+                        {# Value display — masked or plain #}
+                        {% if edit_key == s.key %}
+                        {# Edit mode: inline form #}
+                        <form method="post" action="/settings/save"
+                              class="flex gap-2 items-center flex-wrap">
+                            <input type="hidden" name="key" value="{{ s.key }}">
+                            <input type="{% if s.is_sensitive %}password{% else %}text{% endif %}"
+                                   name="value"
+                                   autofocus
+                                   placeholder="Paste new value..."
+                                   class="flex-1 min-w-[200px] bg-slate-900 border border-slate-700 rounded
+                                          px-3 py-1.5 text-sm font-mono
+                                          focus:outline-none focus:border-emerald-500">
+                            <button type="submit"
+                                    class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500
+                                           text-sm font-medium transition">
+                                Save
+                            </button>
+                            <a href="/settings"
+                               class="px-3 py-1.5 text-sm text-slate-400 hover:text-slate-200
+                                      transition">
+                                Cancel
+                            </a>
+                        </form>
+                        {% else %}
+                        {# Display mode #}
+                        <div class="font-mono text-sm">
+                            {% if s.is_set %}
+                            {% if s.is_sensitive %}
+                            <span class="text-slate-300">{{ s.display }}</span>
+                            <span class="text-xs text-slate-500 ml-2">({{ s.length }} chars)</span>
+                            {% else %}
+                            <span class="text-slate-300">{{ s.display }}</span>
+                            {% endif %}
+                            {% else %}
+                            <span class="text-slate-600 italic">empty</span>
+                            {% endif %}
+                        </div>
+                        {% if s.updated_at %}
+                        <p class="text-xs text-slate-600 mt-1">
+                            Last updated: {{ s.updated_at }}
+                        </p>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+
+                    {# Right side: Update button (only when not editing this key) #}
+                    {% if edit_key != s.key %}
+                    <div>
+                        <a href="/settings?edit={{ s.key }}"
+                           class="text-xs text-slate-400 hover:text-emerald-300
+                                  border border-slate-600 hover:border-emerald-500
+                                  rounded-lg px-3 py-1.5 transition">
+                            {% if s.is_set %}Update{% else %}Set{% endif %}
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {# Bottom info note #}
+    <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-4 text-xs text-slate-400 space-y-1">
+        <p>
+            <strong class="text-slate-300">Sensitive values</strong> are stored in the
+            <code class="bg-slate-800 px-1 rounded">user_settings</code> table and never
+            displayed in full. They're sent over the wire (browser → server) only when you
+            click Save with a new value.
+        </p>
+        <p>
+            To erase a credential entirely, click Update and save it with an empty value.
+        </p>
+    </div>
+</div>
+{% endblock %}
