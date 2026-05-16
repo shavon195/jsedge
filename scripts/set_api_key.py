@@ -19,7 +19,11 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from app.database import get_connection
 
 
-VALID_KEYS = {"gemini_api_key", "claude_api_key"}
+VALID_KEYS = {
+    "gemini_api_key", "claude_api_key", "resend_api_key",
+    "twilio_account_sid", "twilio_auth_token",
+    "email_address", "whatsapp_number",
+}
 
 
 def main() -> None:

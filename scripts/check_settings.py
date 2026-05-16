@@ -18,12 +18,13 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from app.database import get_connection
 
 
-SENSITIVE_SUFFIXES = ("_api_key", "_secret", "_password", "_token")
-
+SENSITIVE_SUFFIXES = ("_api_key", "_secret", "_password", "_token", "_sid")
+SENSITIVE_KEYS = ("email_address", "whatsapp_number")
 
 def is_sensitive(key: str) -> bool:
+    if key in SENSITIVE_KEYS:
+        return True
     return any(key.endswith(suf) for suf in SENSITIVE_SUFFIXES)
-
 
 def mask(value: str) -> str:
     if not value:
