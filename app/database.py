@@ -151,14 +151,13 @@ CREATE TABLE IF NOT EXISTS watchlist (
 
 -- 6. Alerts log — history of alerts already sent (so we don't spam).
 CREATE TABLE IF NOT EXISTS alerts_log (
-    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-    stock_id           INTEGER NOT NULL,
-    alert_type         TEXT    NOT NULL CHECK (alert_type IN
-                                ('LIMIT_PRICE_HIT', 'SCORE_THRESHOLD', 'VOLUME_SPIKE', 'DAILY_BRIEF')),
-    message_summary    TEXT    NOT NULL,
-    delivered_via      TEXT    CHECK (delivered_via IN ('whatsapp', 'email', 'both', 'failed')),
-    sent_at            TEXT    NOT NULL DEFAULT (datetime('now')),
-    FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    stock_id        INTEGER,   -- NULL for non-stock alerts (e.g. keep_alive, daily_summary)
+    alert_type      TEXT    NOT NULL,   -- 'target_hit' | 'keep_alive' | 'daily_summary' | ...
+    message_summary TEXT    NOT NULL,
+    delivered_via   TEXT,                -- 'email' | 'whatsapp' | 'both' | 'failed'
+    sent_at         TEXT    NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE SET NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_alerts_stock ON alerts_log(stock_id, sent_at);
