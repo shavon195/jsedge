@@ -268,3 +268,72 @@ def send_keep_alive(force: bool = False) -> dict:
         "verse_ref":        ref,
         "error":            wa_result.get("error") if not wa_result["ok"] else None,
     }
+
+# ---------------------------------------------------------------------------
+# History view
+# ---------------------------------------------------------------------------
+def list_alerts(filter_type: str = "all", limit: int = 200) -> list[dict]:
+    """
+    Return recent alerts_log rows newest-first, optionally filtered by type.
+
+    Args:
+        filter_type: 'all', 'target_hit', 'keep_alive', or 'failed'
+                     ('failed' filters by delivered_via, others by alert_type)
+        limit: max rows to return
+
+    Each dict has:
+        id, alert_type, message_summary, delivered_via, sent_at,
+        stock_id, symbol (may be None for non-stock alerts)
+    """
+    where = ""
+    params: tuple = ()
+    if filter_type == "failed":
+        where = "WHERE a.delivered_via = 'failed'"
+    elif filter_type in ("target_hit", "keep_alive"):
+        where = "WHERE a.alert_type = ?"
+        params = (filter_type,)
+
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            f"""
+            SELECT
+                a.id              AS id,
+                a.alert_type      AS alert_type,
+                a.message_summary AS message_summary,
+                a.delivered_via   AS delivered_via,
+                a.sent_at         AS sent_at,
+                a.stock_id        AS stock_id,
+                s.symbol          AS symbol
+            FROM alerts_log a
+            LEFT JOIN stocks s ON s.id = a.stock_id
+            {where}
+            ORDER BY a.sent_at DESC
+            LIMIT ?
+            """,
+            params + (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def alert_counts() -> dict:
+    """Return counts of {all, target_hit, keep_alive, failed} for filter pills."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT alert_type, delivered_via, COUNT(*) AS n "
+            "FROM alerts_log GROUP BY alert_type, delivered_via"
+        ).fetchall()
+    finally:
+        conn.close()
+
+    counts = {"all": 0, "target_hit": 0, "keep_alive": 0, "failed": 0}
+    for r in rows:
+        counts["all"] += r["n"]
+        if r["alert_type"] in counts:
+            counts[r["alert_type"]] += r["n"]
+        if r["delivered_via"] == "failed":
+            counts["failed"] += r["n"]
+    return counts

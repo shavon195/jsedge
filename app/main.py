@@ -376,6 +376,34 @@ async def watchlist_remove(watchlist_id: int,
     return RedirectResponse(url=f"/watchlist?flash={flash}", status_code=303)
 
 # ---------------------------------------------------------------------------
+# Alert history (admin-only)
+# ---------------------------------------------------------------------------
+@app.get("/alerts", response_class=HTMLResponse)
+async def alerts_view(request: Request,
+                      filter: str = "all",
+                      _admin: bool = Depends(require_admin)):
+    """Show alert history (newest first)."""
+    from app.alerts.dispatcher import list_alerts, alert_counts
+
+    if filter not in ("all", "target_hit", "keep_alive", "failed"):
+        filter = "all"
+
+    rows   = list_alerts(filter_type=filter, limit=200)
+    counts = alert_counts()
+
+    return templates.TemplateResponse(
+        "alerts.html",
+        {
+            "request":     request,
+            "active_tab":  "alerts",
+            "page_title":  "Alerts — History",
+            "rows":        rows,
+            "counts":      counts,
+            "filter":      filter,
+        },
+    )
+
+# ---------------------------------------------------------------------------
 # Fundamentals data entry
 # ---------------------------------------------------------------------------
 @app.get("/fundamentals", response_class=HTMLResponse)

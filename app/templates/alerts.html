@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    {# Header #}
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+            <h1 class="text-3xl font-bold mb-2">Alerts — History</h1>
+            <p class="text-slate-400">
+                Every alert JSEdge has sent — target hits, keep-alives, failed deliveries.
+            </p>
+        </div>
+
+        {# Filter pills #}
+        <div class="inline-flex bg-slate-800 border border-slate-700 rounded-full p-1 flex-wrap">
+            <a href="/alerts?filter=all"
+               class="px-4 py-1.5 text-xs rounded-full transition
+                      {% if filter == 'all' %}
+                      bg-emerald-500 text-slate-900 font-medium
+                      {% else %}
+                      text-slate-400 hover:text-slate-200
+                      {% endif %}">
+                All ({{ counts.all }})
+            </a>
+            <a href="/alerts?filter=target_hit"
+               class="px-4 py-1.5 text-xs rounded-full transition
+                      {% if filter == 'target_hit' %}
+                      bg-emerald-500 text-slate-900 font-medium
+                      {% else %}
+                      text-slate-400 hover:text-slate-200
+                      {% endif %}">
+                Target hits ({{ counts.target_hit }})
+            </a>
+            <a href="/alerts?filter=keep_alive"
+               class="px-4 py-1.5 text-xs rounded-full transition
+                      {% if filter == 'keep_alive' %}
+                      bg-emerald-500 text-slate-900 font-medium
+                      {% else %}
+                      text-slate-400 hover:text-slate-200
+                      {% endif %}">
+                Keep-alives ({{ counts.keep_alive }})
+            </a>
+            <a href="/alerts?filter=failed"
+               class="px-4 py-1.5 text-xs rounded-full transition
+                      {% if filter == 'failed' %}
+                      bg-rose-500 text-slate-900 font-medium
+                      {% else %}
+                      text-slate-400 hover:text-slate-200
+                      {% endif %}">
+                Failed ({{ counts.failed }})
+            </a>
+        </div>
+    </div>
+
+    {# Empty state #}
+    {% if not rows %}
+    <div class="bg-slate-800 border border-slate-700 rounded-lg p-10 text-center space-y-2">
+        <p class="text-slate-400">
+            {% if filter == 'all' %}
+            No alerts sent yet. They'll appear here as JSEdge fires them.
+            {% elif filter == 'target_hit' %}
+            No target-hit alerts yet.
+            {% elif filter == 'keep_alive' %}
+            No keep-alive alerts yet.
+            {% elif filter == 'failed' %}
+            No failed alerts. Everything's going through.
+            {% endif %}
+        </p>
+    </div>
+    {% else %}
+
+    {# Alert rows #}
+    <div class="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-900 text-slate-400 text-xs uppercase tracking-wide">
+                <tr>
+                    <th class="text-left px-4 py-3 w-40">When</th>
+                    <th class="text-left px-4 py-3 w-24">Stock</th>
+                    <th class="text-left px-4 py-3 w-32">Type</th>
+                    <th class="text-left px-4 py-3">Message</th>
+                    <th class="text-left px-4 py-3 w-28">Channel</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-700">
+                {% for a in rows %}
+                <tr class="hover:bg-slate-750 transition">
+                    {# When — UTC timestamp, kept compact #}
+                    <td class="px-4 py-3 font-mono text-xs text-slate-400">
+                        {{ a.sent_at }}
+                    </td>
+
+                    {# Stock symbol — may be NULL for non-stock alerts #}
+                    <td class="px-4 py-3 font-mono">
+                        {% if a.symbol %}
+                        <span class="text-emerald-400 font-bold">{{ a.symbol }}</span>
+                        {% else %}
+                        <span class="text-slate-600">—</span>
+                        {% endif %}
+                    </td>
+
+                    {# Alert type — badge #}
+                    <td class="px-4 py-3">
+                        <span class="text-xs font-medium px-2 py-0.5 rounded-full
+                                     {% if a.alert_type == 'target_hit' %}
+                                     bg-emerald-900/40 border border-emerald-700 text-emerald-200
+                                     {% elif a.alert_type == 'keep_alive' %}
+                                     bg-purple-900/40 border border-purple-700 text-purple-200
+                                     {% else %}
+                                     bg-slate-700 border border-slate-600 text-slate-300
+                                     {% endif %}">
+                            {{ a.alert_type }}
+                        </span>
+                    </td>
+
+                    {# Message — full text #}
+                    <td class="px-4 py-3 text-slate-300">
+                        {{ a.message_summary }}
+                    </td>
+
+                    {# Delivered via — badge #}
+                    <td class="px-4 py-3">
+                        {% if a.delivered_via == 'both' %}
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-900/40 text-emerald-200">
+                            email + WhatsApp
+                        </span>
+                        {% elif a.delivered_via == 'email' %}
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-cyan-900/40 text-cyan-200">
+                            email
+                        </span>
+                        {% elif a.delivered_via == 'whatsapp' %}
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-amber-900/40 text-amber-200">
+                            WhatsApp
+                        </span>
+                        {% elif a.delivered_via == 'failed' %}
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-rose-900/40 text-rose-200">
+                            failed
+                        </span>
+                        {% else %}
+                        <span class="text-xs text-slate-500">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="text-center text-xs text-slate-500 pt-2">
+        Showing {{ rows|length }} most-recent alert{% if rows|length != 1 %}s{% endif %}.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
