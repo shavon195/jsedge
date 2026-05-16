@@ -43,15 +43,16 @@ def get_connection() -> sqlite3.Connection:
 SCHEMA_SQL = """
 -- 1. Master list of every JSE-listed stock.
 CREATE TABLE IF NOT EXISTS stocks (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    symbol      TEXT    NOT NULL UNIQUE,
-    name        TEXT    NOT NULL,
-    market      TEXT    NOT NULL CHECK (market IN ('Main Market', 'Junior Market', 'USD Market')),
-    sector      TEXT,
-    currency    TEXT    NOT NULL DEFAULT 'JMD',
-    is_listed   INTEGER NOT NULL DEFAULT 1,
-    created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
-    updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol          TEXT    NOT NULL UNIQUE,
+    name            TEXT    NOT NULL,
+    market          TEXT    NOT NULL CHECK (market IN ('Main Market', 'Junior Market', 'USD Market')),
+    sector          TEXT,
+    currency        TEXT    NOT NULL DEFAULT 'JMD',
+    is_listed       INTEGER NOT NULL DEFAULT 1,
+    instrument_code INTEGER,                          -- JSE Price History numeric ID
+    created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
 -- 2. Daily closing price + volume for every stock. Grows forever.
