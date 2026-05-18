@@ -174,7 +174,7 @@ def save_fundamental(stock_id: int, form_data: dict) -> dict:
 
     # Numeric fields — all optional.
     numeric_fields = [
-        "eps", "pe_ratio", "pb_ratio", "dividend_yield",
+        "eps", "dividend_per_share",
         "total_debt", "total_equity", "total_assets",
         "net_income", "operating_income",
         "operating_cash_flow", "free_cash_flow",
@@ -203,7 +203,7 @@ def save_fundamental(stock_id: int, form_data: dict) -> dict:
             """
             INSERT INTO fundamentals (
                 stock_id, period_end_date, period_type,
-                eps, pe_ratio, pb_ratio, dividend_yield,
+                eps, dividend_per_share,
                 total_debt, total_equity, total_assets,
                 net_income, operating_income,
                 operating_cash_flow, free_cash_flow,
@@ -211,7 +211,7 @@ def save_fundamental(stock_id: int, form_data: dict) -> dict:
                 source, notes
             ) VALUES (
                 ?, ?, ?,
-                ?, ?, ?, ?,
+                ?, ?,
                 ?, ?, ?,
                 ?, ?,
                 ?, ?,
@@ -220,9 +220,7 @@ def save_fundamental(stock_id: int, form_data: dict) -> dict:
             )
             ON CONFLICT(stock_id, period_end_date, period_type) DO UPDATE SET
                 eps                 = excluded.eps,
-                pe_ratio            = excluded.pe_ratio,
-                pb_ratio            = excluded.pb_ratio,
-                dividend_yield      = excluded.dividend_yield,
+                dividend_per_share  = excluded.dividend_per_share,
                 total_debt          = excluded.total_debt,
                 total_equity        = excluded.total_equity,
                 total_assets        = excluded.total_assets,
@@ -237,8 +235,7 @@ def save_fundamental(stock_id: int, form_data: dict) -> dict:
             """,
             (
                 stock_id, period_end_date, period_type,
-                values["eps"], values["pe_ratio"], values["pb_ratio"],
-                values["dividend_yield"],
+                values["eps"], values["dividend_per_share"],
                 values["total_debt"], values["total_equity"], values["total_assets"],
                 values["net_income"], values["operating_income"],
                 values["operating_cash_flow"], values["free_cash_flow"],

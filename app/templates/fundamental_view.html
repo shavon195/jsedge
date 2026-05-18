@@ -74,14 +74,36 @@
                 <div class="flex justify-between"><span class="text-slate-400">Total Debt</span><span class="font-mono">{{ show_num(f.total_debt) }}</span></div>
             </div>
             <div class="space-y-2">
-                <p class="text-xs text-slate-500 uppercase tracking-wide">Cash Flow & Ratios</p>
+                <p class="text-xs text-slate-500 uppercase tracking-wide">Cash Flow & Per-Share</p>
                 <div class="flex justify-between"><span class="text-slate-400">Operating CF</span><span class="font-mono">{{ show_num(f.operating_cash_flow) }}</span></div>
                 <div class="flex justify-between"><span class="text-slate-400">Free CF</span><span class="font-mono">{{ show_num(f.free_cash_flow) }}</span></div>
-                <div class="flex justify-between"><span class="text-slate-400">P/E</span><span class="font-mono">{{ show_num(f.pe_ratio, 2) }}</span></div>
-                <div class="flex justify-between"><span class="text-slate-400">P/B</span><span class="font-mono">{{ show_num(f.pb_ratio, 2) }}</span></div>
-                <div class="flex justify-between"><span class="text-slate-400">Div Yield</span><span class="font-mono">{{ show_num(f.dividend_yield, 2) }}</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">Div per Share</span><span class="font-mono">{{ show_num(f.dividend_per_share, 4) }}</span></div>
                 <div class="flex justify-between"><span class="text-slate-400">Shares Out.</span><span class="font-mono">{{ show_num(f.shares_outstanding) }}</span></div>
             </div>
+        </div>
+
+        {# Live ratios — computed from latest price, not stored #}
+        <div class="mt-4 pt-3 border-t border-slate-700">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-xs text-slate-500 uppercase tracking-wide">Live Ratios</p>
+                {% if derived.latest_price %}
+                <p class="text-xs text-slate-500">
+                    Price: <span class="font-mono text-slate-300">{{ "%.2f"|format(derived.latest_price) }}</span>
+                    <span class="text-slate-600">({{ derived.latest_price_date }})</span>
+                </p>
+                {% else %}
+                <p class="text-xs text-amber-500">No price data yet</p>
+                {% endif %}
+            </div>
+            <div class="grid grid-cols-3 gap-4 text-sm">
+                <div class="flex justify-between"><span class="text-slate-400">P/E</span><span class="font-mono">{{ show_num(derived.pe_ratio, 2) }}</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">P/B</span><span class="font-mono">{{ show_num(derived.pb_ratio, 2) }}</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">Div Yield %</span><span class="font-mono">{{ show_num(derived.dividend_yield, 2) }}</span></div>
+            </div>
+            <p class="mt-2 text-xs text-slate-500">
+                Recomputed every page load from the latest scraped price &mdash; never stale.
+            </p>
+        </div>
         </div>
 
         {% if f.notes %}
@@ -118,17 +140,16 @@
             </div>
 
             <fieldset class="border border-slate-700 rounded p-4">
-                <legend class="px-2 text-xs uppercase tracking-wide text-slate-400">Income Statement</legend>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <label class="block"><span class="text-sm text-slate-300">Revenue</span>
-                        <input type="number" step="any" name="revenue" value="{{ f.revenue if f.revenue is not none else '' }}" class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"></label>
-                    <label class="block"><span class="text-sm text-slate-300">Net Income</span>
-                        <input type="number" step="any" name="net_income" value="{{ f.net_income if f.net_income is not none else '' }}" class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"></label>
-                    <label class="block"><span class="text-sm text-slate-300">Operating Income</span>
-                        <input type="number" step="any" name="operating_income" value="{{ f.operating_income if f.operating_income is not none else '' }}" class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"></label>
-                    <label class="block"><span class="text-sm text-slate-300">EPS (per share)</span>
-                        <input type="number" step="any" name="eps" value="{{ f.eps if f.eps is not none else '' }}" class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"></label>
+                <legend class="px-2 text-xs uppercase tracking-wide text-slate-400">Per-Share &amp; Other</legend>
+                <div class="grid grid-cols-2 md:grid-cols-2 gap-4">
+                    <label class="block"><span class="text-sm text-slate-300">Dividend per Share</span>
+                        <input type="number" step="any" name="dividend_per_share" value="{{ f.dividend_per_share if f.dividend_per_share is not none else '' }}" class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"></label>
+                    <label class="block"><span class="text-sm text-slate-300">Shares Outstanding</span>
+                        <input type="number" step="any" name="shares_outstanding" value="{{ f.shares_outstanding if f.shares_outstanding is not none else '' }}" class="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"></label>
                 </div>
+                <p class="mt-3 text-xs text-slate-500">
+                    P/E, P/B, and dividend yield are computed live from EPS, equity, dividend-per-share, and the latest price.
+                </p>
             </fieldset>
 
             <fieldset class="border border-slate-700 rounded p-4">

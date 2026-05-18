@@ -560,9 +560,7 @@ async def save_fundamental_period(
     period_end_date: str = Form(...),
     period_type:     str = Form(...),
     eps:                 str = Form(""),
-    pe_ratio:            str = Form(""),
-    pb_ratio:            str = Form(""),
-    dividend_yield:      str = Form(""),
+    dividend_per_share:  str = Form(""),
     total_debt:          str = Form(""),
     total_equity:        str = Form(""),
     total_assets:        str = Form(""),
@@ -581,9 +579,7 @@ async def save_fundamental_period(
         "period_end_date":     period_end_date,
         "period_type":         period_type,
         "eps":                 eps,
-        "pe_ratio":            pe_ratio,
-        "pb_ratio":            pb_ratio,
-        "dividend_yield":      dividend_yield,
+        "dividend_per_share":  dividend_per_share,
         "total_debt":          total_debt,
         "total_equity":        total_equity,
         "total_assets":        total_assets,
@@ -626,6 +622,8 @@ async def fundamental_view(
 ):
     """View one fundamentals row (read-only) with edit form."""
     from app.fundamentals import get_fundamental_by_id
+    from app.database import get_connection
+
     f = get_fundamental_by_id(fundamental_id)
 
     if f is None:
@@ -634,6 +632,51 @@ async def fundamental_view(
             {"request": request, "page_title": "Period not found"},
             status_code=404,
         )
+
+    # Fetch the latest close price for live ratio computation.
+    # Ratios are computed here (not stored) so they always reflect today's
+    # price, not whatever the price was when fundamentals were entered.
+    conn = get_connection()
+    try:
+        price_row = conn.execute(
+            """
+            SELECT close_price, date
+            FROM prices_daily
+            WHERE stock_id = ?
+            ORDER BY date DESC LIMIT 1
+            """,
+            (f["stock_id"],),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    latest_price = price_row["close_price"] if price_row else None
+    latest_price_date = price_row["date"] if price_row else None
+
+    # Compute the three derived ratios. Any missing input -> None.
+    pe_ratio = None
+    pb_ratio = None
+    dividend_yield = None
+
+    if latest_price and latest_price > 0:
+        if f.get("eps") not in (None, 0):
+            pe_ratio = latest_price / f["eps"]
+
+        if f.get("total_equity") and f["total_equity"] > 0 and f.get("shares_outstanding"):
+            book_value_per_share = f["total_equity"] / f["shares_outstanding"]
+            if book_value_per_share > 0:
+                pb_ratio = latest_price / book_value_per_share
+
+        if f.get("dividend_per_share"):
+            dividend_yield = (f["dividend_per_share"] / latest_price) * 100
+
+    derived = {
+        "latest_price":      latest_price,
+        "latest_price_date": latest_price_date,
+        "pe_ratio":          pe_ratio,
+        "pb_ratio":          pb_ratio,
+        "dividend_yield":    dividend_yield,
+    }
 
     # Parse flash query param.
     flash_kind = None
@@ -652,11 +695,11 @@ async def fundamental_view(
             "request":    request,
             "page_title": f"{f['symbol']} — {f['period_end_date']}",
             "f":          f,
+            "derived":    derived,
             "flash_kind": flash_kind,
             "flash_msg":  flash_msg,
         },
     )
-
 
 @app.post("/fundamentals/period/{fundamental_id}/update")
 async def fundamental_update(
@@ -666,9 +709,7 @@ async def fundamental_update(
     period_end_date: str = Form(...),
     period_type:     str = Form(...),
     eps:                 str = Form(""),
-    pe_ratio:            str = Form(""),
-    pb_ratio:            str = Form(""),
-    dividend_yield:      str = Form(""),
+    dividend_per_share:  str = Form(""),
     total_debt:          str = Form(""),
     total_equity:        str = Form(""),
     total_assets:        str = Form(""),
@@ -691,9 +732,7 @@ async def fundamental_update(
         "period_end_date":     period_end_date,
         "period_type":         period_type,
         "eps":                 eps,
-        "pe_ratio":            pe_ratio,
-        "pb_ratio":            pb_ratio,
-        "dividend_yield":      dividend_yield,
+        "dividend_per_share":  dividend_per_share,
         "total_debt":          total_debt,
         "total_equity":        total_equity,
         "total_assets":        total_assets,
@@ -716,7 +755,6 @@ async def fundamental_update(
         url=f"/fundamentals/period/{fundamental_id}?flash={flash_msg}",
         status_code=303,
     )
-
 
 @app.post("/fundamentals/period/{fundamental_id}/delete")
 async def fundamental_delete(request: Request, fundamental_id: int,
