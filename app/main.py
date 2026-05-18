@@ -654,22 +654,26 @@ async def fundamental_view(
     latest_price_date = price_row["date"] if price_row else None
 
     # Compute the three derived ratios. Any missing input -> None.
+    # Note: we explicitly check `is not None` (not truthiness) because a
+    # legitimately-zero value (e.g. company paid no dividend this year) is
+    # a real signal, not missing data. Without this, 0 would display as —.
     pe_ratio = None
     pb_ratio = None
     dividend_yield = None
 
     if latest_price and latest_price > 0:
-        if f.get("eps") not in (None, 0):
+        if f.get("eps") is not None and f["eps"] != 0:
             pe_ratio = latest_price / f["eps"]
 
-        if f.get("total_equity") and f["total_equity"] > 0 and f.get("shares_outstanding"):
+        if (f.get("total_equity") is not None and f["total_equity"] > 0
+                and f.get("shares_outstanding") is not None
+                and f["shares_outstanding"] > 0):
             book_value_per_share = f["total_equity"] / f["shares_outstanding"]
             if book_value_per_share > 0:
                 pb_ratio = latest_price / book_value_per_share
 
-        if f.get("dividend_per_share"):
+        if f.get("dividend_per_share") is not None:
             dividend_yield = (f["dividend_per_share"] / latest_price) * 100
-
     derived = {
         "latest_price":      latest_price,
         "latest_price_date": latest_price_date,
