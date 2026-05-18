@@ -12,7 +12,7 @@ Daily automation runs via Windows Task Scheduler — see "Automation" section be
 
 ---
 
-## ✅ Done so far (~40 commits)
+## ✅ Done so far (~41 commits)
 
 ### Foundation
 - FastAPI server with 5 tabs (JSE / News / Trading / Watchlist / Fundamentals)
@@ -41,9 +41,12 @@ Daily automation runs via Windows Task Scheduler — see "Automation" section be
 
 ### Fundamentals data entry
 - Per-stock list page with progress bar + smart sort
-- 13-field add/edit/delete with flash banners
+- 11-field add/edit/delete with flash banners
 - Save & Add Another, Prev/Next nav
-- Real data entered so far: **CAR, WISYNCO** (2 of ~100)
+- **Live ratios** — P/E, P/B, and dividend yield computed on every page load
+  against the latest scraped close price. Never stored, never stale.
+- Real data entered so far (16 of ~100): 138SL, 1GS, AFS, AHPC, AMG, BRG,
+  CABROKERS, CAR, CCC, DCOVE, ENERGY, EPLY, GK, JBG, TJH, WISYNCO.
 
 ### Admin authentication
 - `.env`-based password + signed session cookies (`itsdangerous`)
@@ -97,10 +100,17 @@ Currently `app/alerts/dispatcher.py` has 7 placeholder verses. Replace with Shav
 - **Summary emails** (~1-2h): scheduled daily/weekly/monthly digest emails
 
 ### 4. More fundamentals data entry (paced, weeks)
-Goal: 10-20 companies of fundamentals so 5yr/10yr rankings come alive.
-Done: CAR, WISYNCO.
-Next picks (non-bank, simple financials): GK, LASD, DCOVE, JBG.
+Goal: 20+ companies so 5yr/10yr rankings stabilize.
+Done: 16 companies (see "Done so far" for the list).
+Next picks (non-bank, simple financials): LASD, SVL, MJE.
 Defer banks until non-bank pattern is solid: NCBFG, JMMBGL, BIL.
+
+**Sub-task: backfill `dividend_per_share` for the existing 16 rows.**
+Post-v3-refactor, this column is NULL for everyone. Open each company's
+source filing (link is usually in the notes field), find annual dividends
+per share, type into the edit form. ~5 min per company, ~80 min total.
+Without this, dividend yield reads `—` on the view page even for companies
+that pay dividends.
 
 ### 5. Trading tab (Phase 3) — biggest remaining feature (~15-25 hours)
 - Technical indicators: RSI, MACD, moving averages, Bollinger Bands
@@ -121,17 +131,41 @@ Auto-extract fundamentals from JSE filings PDFs instead of manual entry.
 Defer until non-bank pattern is solid (5+ companies entered manually).
 
 ### 8. Tech debt
-- `app/database.py` SCHEMA_SQL is missing `news_articles` and `news_stock_links` definitions — they were created out-of-band. Reconcile next time we rebuild the DB.
-- `news_stock_links.removed_at` was added via migration; should be in SCHEMA_SQL too.
-- `alerts_log` was migrated to nullable `stock_id`; SCHEMA_SQL was updated to match (already done today).
 
----
+- **Migration v3 backup file lives at `data/jsedge.db.bak-before-v3`.** Safe
+  to delete once you're confident the refactor stuck (a week of normal use
+  with no anomalies). Already gitignored via `data/*.bak*` rule.
+
+- **`scripts/check_score_dupes.py`** is an untracked diagnostic — used to
+  investigate whether duplicate scores rows are a bug (they're not; see
+  the bullet about the `scores` table below). Can stay or be deleted; harmless.
+
+- **Backfilling `dividend_per_share` is required for dividend yield to display.**
+  See section 4 sub-task. Until backfilled, the view page shows `—` for yield
+  on every period.
+
+- **`scores` table accumulates historical snapshots intentionally.** Each scoring run inserts new rows per (stock_id, horizon) keyed by the `date` column. So a single stock can have many rows in the same horizon — one per scoring run. This is NOT a bug. Do not "clean up duplicates" without first checking the `date` values, or you'll wipe scoring history.
+  - Verification query: `SELECT id, date, composite_score, data_completeness, created_at FROM scores WHERE stock_id = X AND horizon = Y` will show distinct dates with distinct scores.
+  - The rankings page correctly picks the most-recent score per stock via `get_latest_rankings()` in `app/ranking.py`.
+
+- **Future retention strategy for `scores`.** After ~5 years of daily scoring runs, this table will have several million rows. SQLite handles that fine but queries get slower without proper indexes. Consider implementing tiered retention later: daily snapshots for 90 days, weekly for 1 year, monthly thereafter. Address when growth becomes real (~year 3-5), not before.
+
+- **`app/database.py` SCHEMA_SQL** is missing `news_articles` and `news_stock_links` definitions — they were created out-of-band via migration scripts. Reconcile next time we rebuild the DB.
+
+- **`news_stock_links.removed_at`** was added via migration; should be in SCHEMA_SQL too.
+
+- **`alerts_log` `stock_id` was migrated to nullable** to support non-stock alerts (like keep-alives). SCHEMA_SQL was updated (already done).
+
+- **`stocks.instrument_code`** was added via `scripts/migrate_add_instrument_code.py` and reflected in SCHEMA_SQL (already done).
 
 ## 📋 Verification commands
 
 ```bash
 # Inspect database
 python scripts/check_db.py
+
+# Inspect fundamentals table contents (16 rows, post-v3 schema)
+python scripts/inspect_fundamentals.py
 
 # Inspect user_settings (sensitive values masked)
 python scripts/check_settings.py
@@ -191,3 +225,4 @@ python scripts/find_stock.py first
 - **No "smart" auto-target prices.** Watchlist shows price context (year range, quick targets) but user always picks the target. Reasoning: AI-generated targets would create false confidence on real money decisions.
 - **Fundamentals data entry deferred to LAST** before deploy — chat sessions can fragment during long data entry, but framework code is in git regardless.
 - **Refresh + summarize buttons admin-only.** Public visitors get fresh data via daily cron; manual refresh stays gated to prevent cost / DDoS surface area.
+- **Derived ratios are computed live, never stored.** P/E, P/B, and dividend yield are computed in the view route against `prices_daily.close_price`. The original `fundamentals.pe_ratio`/`pb_ratio`/`dividend_yield` columns were dropped in the v3 migration. Reasoning: storing derived data alongside its inputs guarantees staleness the moment prices move. The ranking engine never read those columns, so there were no scoring impacts.
