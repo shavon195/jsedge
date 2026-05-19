@@ -12,7 +12,7 @@ Daily automation runs via Windows Task Scheduler — see "Automation" section be
 
 ---
 
-## ✅ Done so far (~41 commits)
+## ✅ Done so far (~43 commits)
 
 ### Foundation
 - FastAPI server with 5 tabs (JSE / News / Trading / Watchlist / Fundamentals)
@@ -44,7 +44,10 @@ Daily automation runs via Windows Task Scheduler — see "Automation" section be
 - 11-field add/edit/delete with flash banners
 - Save & Add Another, Prev/Next nav
 - **Live ratios** — P/E, P/B, and dividend yield computed on every page load
-  against the latest scraped close price. Never stored, never stale.
+  against the latest scraped close price. Never stored, never stale. Distinguishes
+  between confirmed zero (e.g. company paid no dividend → displays `0.00`) and
+  missing data (`—`).
+- **All 16 existing rows have `dividend_per_share` filled** (May 2026 backfill pass).
 - Real data entered so far (16 of ~100): 138SL, 1GS, AFS, AHPC, AMG, BRG,
   CABROKERS, CAR, CCC, DCOVE, ENERGY, EPLY, GK, JBG, TJH, WISYNCO.
 
@@ -99,18 +102,24 @@ Currently `app/alerts/dispatcher.py` has 7 placeholder verses. Replace with Shav
 - **Alert history page** (~30 min): view past `alerts_log` rows in the web UI
 - **Summary emails** (~1-2h): scheduled daily/weekly/monthly digest emails
 
-### 4. More fundamentals data entry (paced, weeks)
-Goal: 20+ companies so 5yr/10yr rankings stabilize.
-Done: 16 companies (see "Done so far" for the list).
-Next picks (non-bank, simple financials): LASD, SVL, MJE.
-Defer banks until non-bank pattern is solid: NCBFG, JMMBGL, BIL.
+### Fundamentals data entry
+- Per-stock list page with progress bar + smart sort
+- 11-field add/edit/delete with flash banners
+- Save & Add Another, Prev/Next nav
+- **Live ratios** — P/E, P/B, and dividend yield computed every page load
+  against the latest scraped price. Never stored, never stale.
+- **All 16 rows have `dividend_per_share` filled** (May 2026 backfill).
+  Convention: value paid *during* the fiscal year. Use `0` for "confirmed
+  paid nothing", NULL only for "not yet checked".
+- Real data entered so far (16 of ~100): 138SL, 1GS, AFS, AHPC, AMG, BRG,
+  CABROKERS, CAR, CCC, DCOVE, ENERGY, EPLY, GK, JBG, TJH, WISYNCO.
 
-**Sub-task: backfill `dividend_per_share` for the existing 16 rows.**
-Post-v3-refactor, this column is NULL for everyone. Open each company's
-source filing (link is usually in the notes field), find annual dividends
-per share, type into the edit form. ~5 min per company, ~80 min total.
-Without this, dividend yield reads `—` on the view page even for companies
-that pay dividends.
+**⚠️ Heads-up for other chats working on fundamentals:**
+- The edit form had a data-loss bug; fixed May 18 2026 (commit `2455892`).
+  If you see fields go NULL after a save, check `app/templates/fundamental_view.html`
+  has the Income Statement fieldset.
+- TJH P/B = 6,727 is wrong — likely a unit mismatch between equity (USD
+  thousands) and shares (full count). Don't trust TJH's P/B until fixed.
 
 ### 5. Trading tab (Phase 3) — biggest remaining feature (~15-25 hours)
 - Technical indicators: RSI, MACD, moving averages, Bollinger Bands
@@ -132,17 +141,32 @@ Defer until non-bank pattern is solid (5+ companies entered manually).
 
 ### 8. Tech debt
 
+- **TJH P/B = 6,727 is mathematically right but practically nonsense.** Almost
+  certainly a unit mismatch — `total_equity` stored as 13,212,264 while
+  `shares_outstanding` is 12,501,000,000 (12.5B). TJH reports in USD; the
+  equity figure may be in USD thousands while shares are full count. Re-check
+  the 2025 annual report and normalize units before the 5yr/10yr horizon
+  rankings start using this row. Until fixed, TJH's P/B sub-score is garbage.
+
+- **138SL ranking concern — single-fundamentals-row stocks at 75.2 in 5yr
+  horizon "Incomplete Data" tier.** Worth investigating whether single-row
+  stocks should appear in long-horizon rankings at all, or whether the
+  weighting is doing the right thing when only a handful of sub-scores fire.
+  Defer until more rows entered so the comparison surface is real.
+
 - **Migration v3 backup file lives at `data/jsedge.db.bak-before-v3`.** Safe
   to delete once you're confident the refactor stuck (a week of normal use
-  with no anomalies). Already gitignored via `data/*.bak*` rule.
+  with no anomalies). Already gitignored via `data/*.bak*` rule. Also used
+  successfully to recover 138SL from the data-loss bug on 2026-05-18.
 
-- **`scripts/check_score_dupes.py`** is an untracked diagnostic — used to
-  investigate whether duplicate scores rows are a bug (they're not; see
-  the bullet about the `scores` table below). Can stay or be deleted; harmless.
+- **`scripts/recover_138sl.py`** — one-shot recovery script from the
+  data-loss incident. Won't be needed again unless something analogous
+  happens. Keep as a reference example of how to do targeted column
+  restoration from a backup. Can delete later if it gets in the way.
 
-- **Backfilling `dividend_per_share` is required for dividend yield to display.**
-  See section 4 sub-task. Until backfilled, the view page shows `—` for yield
-  on every period.
+- **`scripts/check_score_dupes.py`** — untracked diagnostic, used to confirm
+  that duplicate scores rows are intentional (see `scores` bullet below).
+  Can stay or be deleted; harmless.
 
 - **`scores` table accumulates historical snapshots intentionally.** Each scoring run inserts new rows per (stock_id, horizon) keyed by the `date` column. So a single stock can have many rows in the same horizon — one per scoring run. This is NOT a bug. Do not "clean up duplicates" without first checking the `date` values, or you'll wipe scoring history.
   - Verification query: `SELECT id, date, composite_score, data_completeness, created_at FROM scores WHERE stock_id = X AND horizon = Y` will show distinct dates with distinct scores.
@@ -226,3 +250,5 @@ python scripts/find_stock.py first
 - **Fundamentals data entry deferred to LAST** before deploy — chat sessions can fragment during long data entry, but framework code is in git regardless.
 - **Refresh + summarize buttons admin-only.** Public visitors get fresh data via daily cron; manual refresh stays gated to prevent cost / DDoS surface area.
 - **Derived ratios are computed live, never stored.** P/E, P/B, and dividend yield are computed in the view route against `prices_daily.close_price`. The original `fundamentals.pe_ratio`/`pb_ratio`/`dividend_yield` columns were dropped in the v3 migration. Reasoning: storing derived data alongside its inputs guarantees staleness the moment prices move. The ranking engine never read those columns, so there were no scoring impacts.
+- **Dividend convention: paid during fiscal year.** When backfilling `dividend_per_share`, the value entered is what the company actually paid out during the fiscal year (matches what the cash-flow statement shows), not what was "in respect of" the year's earnings. Exception: EPLY FY2025 used "in respect of" ($1.276) because "paid during" would have included a large FY2024 final that inflated the apparent yield. When in doubt, sanity-check by computing yield/payout-ratio against reported figures from stockanalysis.com / Simply Wall St.
+- **`0` vs NULL for dividend_per_share.** `0` means "confirmed: company paid no dividend this year" (real signal). `NULL` means "haven't checked yet." The view page distinguishes these: 0 displays as `0.00`, NULL displays as `—`.
